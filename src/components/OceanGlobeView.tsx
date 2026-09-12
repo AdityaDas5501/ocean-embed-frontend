@@ -132,10 +132,7 @@ const OceanGlobeView: React.FC = () => {
         setIsMapDataLoaded(true);
       });
 
-    const img = new Image();
-    img.src = "//unpkg.com/three-globe/example/img/night-sky.png";
-    img.onload = () => setIsBgLoaded(true);
-    img.onerror = () => setIsBgLoaded(true);
+    setIsBgLoaded(true);
   }, []);
 
   const isFullyLoaded = isGlobeReady && isMapDataLoaded && isBgLoaded;
@@ -284,7 +281,6 @@ const OceanGlobeView: React.FC = () => {
         width={windowSize.width}
         height={windowSize.height}
         backgroundColor="#000000"
-        backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         globeMaterial={globeMaterial}
         showAtmosphere={true}
         atmosphereColor="#00c8ff"
@@ -334,6 +330,37 @@ const OceanGlobeView: React.FC = () => {
             // --- Mouse hover raycasting for cursor pointer ---
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
+            
+            // Add custom crisp starfield
+            if (!scene.userData.hasStars) {
+              scene.userData.hasStars = true;
+              const starsGeometry = new THREE.BufferGeometry();
+              const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1.0, // 1 pixel wide crisp stars
+                sizeAttenuation: false, // Prevents them from getting huge/blotchy
+                transparent: true,
+                opacity: 0.6
+              });
+
+              const starsVertices = [];
+              for (let i = 0; i < 4000; i++) {
+                // Spread stars in a large sphere around the camera
+                const r = 800 + Math.random() * 1200;
+                const theta = 2 * Math.PI * Math.random();
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+                
+                starsVertices.push(x, y, z);
+              }
+              
+              starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+              const starField = new THREE.Points(starsGeometry, starsMaterial);
+              scene.add(starField);
+            }
 
             let lastHoveredGrid: string | null = null;
             let pointerDownPos = { x: 0, y: 0 };
