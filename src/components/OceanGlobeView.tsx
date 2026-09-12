@@ -288,7 +288,7 @@ const OceanGlobeView: React.FC = () => {
   }, [landPolygons, hoveredCell, clickedCellPolygon, clickedCell]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
+    <div className={!showLoading ? 'labels-ready' : ''} style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
       <Globe
         ref={globeRef}
         width={windowSize.width}
@@ -321,18 +321,22 @@ const OceanGlobeView: React.FC = () => {
         htmlLat={(d: any) => d.lat}
         htmlLng={(d: any) => d.lng}
         htmlElement={(d: any) => {
-          const el = document.createElement('div');
+          const container = document.createElement('div');
+          const el = document.createElement('span');
+          el.className = 'globe-label';
           el.innerHTML = d.text;
           el.style.color = d.isOcean ? 'rgba(255, 255, 255, 0.45)' : 'rgba(120, 120, 120, 0.6)';
           el.style.fontSize = d.isOcean ? '13px' : '10px';
           el.style.fontWeight = '300';
           el.style.fontFamily = 'Inter, sans-serif';
           el.style.letterSpacing = d.isOcean ? '1px' : '0.5px';
-          el.style.pointerEvents = 'none';
           el.style.textShadow = d.isOcean ? 'none' : '0px 0px 2px rgba(255,255,255,0.8)';
           el.style.whiteSpace = 'nowrap';
-          el.style.zIndex = '1';
-          return el;
+          
+          container.style.pointerEvents = 'none';
+          container.style.zIndex = '1';
+          container.appendChild(el);
+          return container;
         }}
         onGlobeReady={() => {
           if (globeRef.current) {

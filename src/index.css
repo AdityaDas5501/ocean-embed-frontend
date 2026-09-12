@@ -22,6 +22,14 @@
   }
 }
 
+.globe-label {
+  opacity: 0;
+}
+
+.labels-ready .globe-label {
+  animation: fadeIn 1.5s ease-in-out forwards;
+}
+
 .sidebar-panel {
   position: absolute;
   top: 0;
