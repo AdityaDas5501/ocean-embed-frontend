@@ -48,6 +48,7 @@ const OceanGlobeView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [focusedRegion, setFocusedRegion] = useState<'bob' | 'as' | null>(null);
   const focusedRegionRef = useRef<'bob' | 'as' | null>(null);
+  const isFlightAnimatingRef = useRef<boolean>(false);
   const cleanupMouseRef = useRef<(() => void) | null>(null);
   const [clickedCell, setClickedCell] = useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<Feature | null>(null);
@@ -211,6 +212,10 @@ const OceanGlobeView: React.FC = () => {
       globeRef.current.pointOfView({ lat: 13.5, lng: 90, altitude: 0.45 }, 2000);
       setFocusedRegion('bob');
       focusedRegionRef.current = 'bob';
+      isFlightAnimatingRef.current = true;
+      setTimeout(() => {
+        isFlightAnimatingRef.current = false;
+      }, 2000);
     }
   };
 
@@ -219,6 +224,10 @@ const OceanGlobeView: React.FC = () => {
       globeRef.current.pointOfView({ lat: 16.5, lng: 63.5, altitude: 0.45 }, 2000);
       setFocusedRegion('as');
       focusedRegionRef.current = 'as';
+      isFlightAnimatingRef.current = true;
+      setTimeout(() => {
+        isFlightAnimatingRef.current = false;
+      }, 2000);
     }
   };
 
@@ -229,6 +238,10 @@ const OceanGlobeView: React.FC = () => {
     setHoveredCell(null);
     if (globeRef.current) {
       globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 1500);
+      isFlightAnimatingRef.current = true;
+      setTimeout(() => {
+        isFlightAnimatingRef.current = false;
+      }, 1500);
     }
   };
 
@@ -367,7 +380,7 @@ const OceanGlobeView: React.FC = () => {
             let cachedGlobeMesh: any = null;
             let cachedSphereMesh: any = null;
             const onMouseMove = (event: MouseEvent) => {
-              if (!focusedRegionRef.current) {
+              if (isFlightAnimatingRef.current) {
                 renderer.domElement.style.cursor = 'default';
                 if (lastHoveredGrid !== null) {
                   lastHoveredGrid = null;
@@ -403,47 +416,64 @@ const OceanGlobeView: React.FC = () => {
                 const lat = (Math.asin(point.y / r) * 180) / Math.PI;
                 const lng = (Math.atan2(point.x, point.z) * 180) / Math.PI;
 
-                const bounds = REGION_BOUNDS[focusedRegionRef.current];
-                if (lat >= bounds.minLat && lat <= bounds.maxLat &&
-                  lng >= bounds.minLng && lng <= bounds.maxLng) {
-                  renderer.domElement.style.cursor = 'pointer';
-
-                  const minLat = Math.floor(lat / 5) * 5;
-                  const minLng = Math.floor(lng / 5) * 5;
-                  const gridKey = `${minLat}-${minLng}`;
-
-                  if (lastHoveredGrid !== gridKey) {
-                    lastHoveredGrid = gridKey;
-
-                    const coords = [];
-                    const numSegments = 10;
-                    const step = 5 / numSegments;
-
-                    // Left edge (up)
-                    for (let i = 0; i < numSegments; i++) coords.push([minLng, minLat + i * step]);
-                    // Top edge (right)
-                    for (let i = 0; i < numSegments; i++) coords.push([minLng + i * step, minLat + 5]);
-                    // Right edge (down)
-                    for (let i = 0; i < numSegments; i++) coords.push([minLng + 5, minLat + 5 - i * step]);
-                    // Bottom edge (left)
-                    for (let i = 0; i < numSegments; i++) coords.push([minLng + 5 - i * step, minLat]);
-
-                    coords.push([minLng, minLat]); // close loop
-
-                    setHoveredCell({
-                      type: 'Feature',
-                      geometry: {
-                        type: 'Polygon',
-                        coordinates: [coords]
-                      },
-                      properties: { isHovered: true }
-                    });
+                const currentRegion = focusedRegionRef.current;
+                
+                if (!currentRegion) {
+                  const bob = REGION_BOUNDS['bob'];
+                  const as = REGION_BOUNDS['as'];
+                  if ((lat >= bob.minLat && lat <= bob.maxLat && lng >= bob.minLng && lng <= bob.maxLng) ||
+                      (lat >= as.minLat && lat <= as.maxLat && lng >= as.minLng && lng <= as.maxLng)) {
+                    renderer.domElement.style.cursor = 'pointer';
+                  } else {
+                    renderer.domElement.style.cursor = 'default';
                   }
-                } else {
-                  renderer.domElement.style.cursor = 'default';
                   if (lastHoveredGrid !== null) {
                     lastHoveredGrid = null;
                     setHoveredCell(null);
+                  }
+                } else {
+                  const bounds = REGION_BOUNDS[currentRegion];
+                  if (lat >= bounds.minLat && lat <= bounds.maxLat &&
+                    lng >= bounds.minLng && lng <= bounds.maxLng) {
+                    renderer.domElement.style.cursor = 'pointer';
+
+                    const minLat = Math.floor(lat / 5) * 5;
+                    const minLng = Math.floor(lng / 5) * 5;
+                    const gridKey = `${minLat}-${minLng}`;
+
+                    if (lastHoveredGrid !== gridKey) {
+                      lastHoveredGrid = gridKey;
+
+                      const coords = [];
+                      const numSegments = 10;
+                      const step = 5 / numSegments;
+
+                      // Left edge (up)
+                      for (let i = 0; i < numSegments; i++) coords.push([minLng, minLat + i * step]);
+                      // Top edge (right)
+                      for (let i = 0; i < numSegments; i++) coords.push([minLng + i * step, minLat + 5]);
+                      // Right edge (down)
+                      for (let i = 0; i < numSegments; i++) coords.push([minLng + 5, minLat + 5 - i * step]);
+                      // Bottom edge (left)
+                      for (let i = 0; i < numSegments; i++) coords.push([minLng + 5 - i * step, minLat]);
+
+                      coords.push([minLng, minLat]); // close loop
+
+                      setHoveredCell({
+                        type: 'Feature',
+                        geometry: {
+                          type: 'Polygon',
+                          coordinates: [coords]
+                        },
+                        properties: { isHovered: true }
+                      });
+                    }
+                  } else {
+                    renderer.domElement.style.cursor = 'default';
+                    if (lastHoveredGrid !== null) {
+                      lastHoveredGrid = null;
+                      setHoveredCell(null);
+                    }
                   }
                 }
               } else {
@@ -460,12 +490,12 @@ const OceanGlobeView: React.FC = () => {
             };
 
             const onPointerUp = (e: PointerEvent) => {
+              if (isFlightAnimatingRef.current) return;
               const dx = e.clientX - pointerDownPos.x;
               const dy = e.clientY - pointerDownPos.y;
               if (Math.sqrt(dx * dx + dy * dy) > 5) return; // It was a drag
 
               const currentRegion = focusedRegionRef.current;
-              if (!currentRegion) return;
 
               const rect = renderer.domElement.getBoundingClientRect();
               mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -491,17 +521,27 @@ const OceanGlobeView: React.FC = () => {
                 const lat = (Math.asin(point.y / r) * 180) / Math.PI;
                 const lng = (Math.atan2(point.x, point.z) * 180) / Math.PI;
 
-                const bounds = REGION_BOUNDS[currentRegion];
-                if (lat >= bounds.minLat && lat <= bounds.maxLat &&
-                  lng >= bounds.minLng && lng <= bounds.maxLng) {
-                  const minLat = Math.floor(lat / 5) * 5;
-                  const maxLat = minLat + 5;
-                  const minLng = Math.floor(lng / 5) * 5;
-                  const maxLng = minLng + 5;
+                if (!currentRegion) {
+                  const bob = REGION_BOUNDS['bob'];
+                  const as = REGION_BOUNDS['as'];
+                  if (lat >= bob.minLat && lat <= bob.maxLat && lng >= bob.minLng && lng <= bob.maxLng) {
+                    handleFocusBayOfBengal();
+                  } else if (lat >= as.minLat && lat <= as.maxLat && lng >= as.minLng && lng <= as.maxLng) {
+                    handleFocusArabianSea();
+                  }
+                } else {
+                  const bounds = REGION_BOUNDS[currentRegion];
+                  if (lat >= bounds.minLat && lat <= bounds.maxLat &&
+                    lng >= bounds.minLng && lng <= bounds.maxLng) {
+                    const minLat = Math.floor(lat / 5) * 5;
+                    const maxLat = minLat + 5;
+                    const minLng = Math.floor(lng / 5) * 5;
+                    const maxLng = minLng + 5;
 
-                  if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-                  setClickedCell({ minLat, maxLat, minLng, maxLng });
-                  setIsClosing(false);
+                    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                    setClickedCell({ minLat, maxLat, minLng, maxLng });
+                    setIsClosing(false);
+                  }
                 }
               }
             };
