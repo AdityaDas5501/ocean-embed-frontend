@@ -60,6 +60,22 @@ const OceanGlobeView: React.FC = () => {
   const [showLoading, setShowLoading] = useState(true);
   const [fadeOutLoading, setFadeOutLoading] = useState(false);
 
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Geographic bounds for clickable grid cells
   const REGION_BOUNDS = {
     bob: { minLat: 5, maxLat: 25, minLng: 80, maxLng: 100 },  // Bay of Bengal
@@ -265,6 +281,8 @@ const OceanGlobeView: React.FC = () => {
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
       <Globe
         ref={globeRef}
+        width={windowSize.width}
+        height={windowSize.height}
         backgroundColor="#000000"
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         globeMaterial={globeMaterial}
