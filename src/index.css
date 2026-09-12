@@ -22,11 +22,11 @@
   }
 }
 
-.globe-label {
-  opacity: 0;
+.loading-active .globe-label {
+  opacity: 0 !important;
 }
 
-.labels-ready .globe-label {
+.intro-active .globe-label {
   animation: fadeIn 1.5s ease-in-out forwards;
 }
 

@@ -60,6 +60,7 @@ const OceanGlobeView: React.FC = () => {
   const [isBgLoaded, setIsBgLoaded] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
   const [fadeOutLoading, setFadeOutLoading] = useState(false);
+  const [introFinished, setIntroFinished] = useState(false);
 
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
@@ -148,6 +149,7 @@ const OceanGlobeView: React.FC = () => {
             globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 4000);
             setTimeout(() => {
               isIntroPlaying.current = false;
+              setIntroFinished(true);
               if (globeRef.current) {
                 globeRef.current.controls().maxDistance = 240;
               }
@@ -288,7 +290,7 @@ const OceanGlobeView: React.FC = () => {
   }, [landPolygons, hoveredCell, clickedCellPolygon, clickedCell]);
 
   return (
-    <div className={!showLoading ? 'labels-ready' : ''} style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
+    <div className={showLoading ? 'loading-active' : (!introFinished ? 'intro-active' : '')} style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
       <Globe
         ref={globeRef}
         width={windowSize.width}
