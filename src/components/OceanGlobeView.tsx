@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import DepthModal from './DepthModal';
 import { dummyOceanData } from '../utils/mockOceanData';
+import LoadingBg from '../assets/images/Loading-Background.webp';
 
 interface GeoJsonGeometry {
   type: string;
@@ -52,6 +53,12 @@ const OceanGlobeView: React.FC = () => {
   const [hoveredCell, setHoveredCell] = useState<Feature | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [isGlobeReady, setIsGlobeReady] = useState(false);
+  const [isMapDataLoaded, setIsMapDataLoaded] = useState(false);
+  const [isBgLoaded, setIsBgLoaded] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const [fadeOutLoading, setFadeOutLoading] = useState(false);
 
   // Geographic bounds for clickable grid cells
   const REGION_BOUNDS = {
@@ -102,9 +109,40 @@ const OceanGlobeView: React.FC = () => {
           }));
 
         setLabels([...OCEANS, ...countryLabels]);
+        setIsMapDataLoaded(true);
       })
-      .catch(err => console.error("Failed to load map data:", err));
+      .catch(err => {
+        console.error("Failed to load map data:", err);
+        setIsMapDataLoaded(true);
+      });
+
+    const img = new Image();
+    img.src = "//unpkg.com/three-globe/example/img/night-sky.png";
+    img.onload = () => setIsBgLoaded(true);
+    img.onerror = () => setIsBgLoaded(true);
   }, []);
+
+  const isFullyLoaded = isGlobeReady && isMapDataLoaded && isBgLoaded;
+
+  useEffect(() => {
+    if (isFullyLoaded) {
+      setTimeout(() => {
+        setFadeOutLoading(true);
+        setTimeout(() => {
+          setShowLoading(false);
+          if (globeRef.current) {
+            globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 4000);
+            setTimeout(() => {
+              isIntroPlaying.current = false;
+              if (globeRef.current) {
+                globeRef.current.controls().maxDistance = 240;
+              }
+            }, 4000);
+          }
+        }, 800);
+      }, 500);
+    }
+  }, [isFullyLoaded]);
 
   const globeMaterial = useMemo(() => {
     const canvas = document.createElement('canvas');
@@ -122,12 +160,6 @@ const OceanGlobeView: React.FC = () => {
 
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, 1024, 512);
-
-      // Add a subtle shimmering noise (optimized loop count for much faster load times)
-      for (let i = 0; i < 1500; i++) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.1})`;
-        ctx.fillRect(Math.random() * 1024, Math.random() * 512, 1.5, 1.5);
-      }
     }
     const texture = new THREE.CanvasTexture(canvas);
 
@@ -196,7 +228,7 @@ const OceanGlobeView: React.FC = () => {
     const coords = [];
     const numSegments = 10;
     const step = 5 / numSegments;
-    
+
     for (let i = 0; i < numSegments; i++) coords.push([minLng, minLat + i * step]);
     for (let i = 0; i < numSegments; i++) coords.push([minLng + i * step, minLat + 5]);
     for (let i = 0; i < numSegments; i++) coords.push([minLng + 5, minLat + 5 - i * step]);
@@ -213,7 +245,7 @@ const OceanGlobeView: React.FC = () => {
   const allPolygons = useMemo(() => {
     const polys = [...landPolygons];
     if (clickedCellPolygon) polys.push(clickedCellPolygon as any);
-    
+
     if (hoveredCell) {
       if (clickedCell) {
         const hCoords = hoveredCell.geometry.coordinates[0][0]; // [lng, lat]
@@ -237,8 +269,8 @@ const OceanGlobeView: React.FC = () => {
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         globeMaterial={globeMaterial}
         showAtmosphere={true}
-        atmosphereColor="#8bb6d6"
-        atmosphereAltitude={0.05}
+        atmosphereColor="#00c8ff"
+        atmosphereAltitude={0.1}
         pathsData={graticules}
         pathPoints={(d: any) => d}
         pathPointLat={(p: any) => p[0]}
@@ -247,16 +279,16 @@ const OceanGlobeView: React.FC = () => {
         polygonsData={allPolygons}
         polygonsTransitionDuration={800}
         polygonAltitude={(d: any) => (d.properties?.isHovered || d.properties?.isClicked) ? 0.011 : 0.01}
-        polygonCapColor={(d: any) => 
+        polygonCapColor={(d: any) =>
           d.properties?.isFadingOut ? 'rgba(255, 50, 50, 0)' :
-          d.properties?.isClicked ? 'rgba(255, 50, 50, 0.25)' : 
-          d.properties?.isHovered ? 'rgba(255, 191, 0, 0.15)' : '#ffffff'
+            d.properties?.isClicked ? 'rgba(255, 50, 50, 0.25)' :
+              d.properties?.isHovered ? 'rgba(255, 191, 0, 0.15)' : '#ffffff'
         }
         polygonSideColor={(d: any) => (d.properties?.isHovered || d.properties?.isClicked) ? 'rgba(0, 0, 0, 0)' : '#ffffff'}
-        polygonStrokeColor={(d: any) => 
+        polygonStrokeColor={(d: any) =>
           d.properties?.isFadingOut ? 'rgba(255, 50, 50, 0)' :
-          d.properties?.isClicked ? 'rgba(255, 50, 50, 1)' : 
-          d.properties?.isHovered ? 'rgba(255, 191, 0, 1)' : 'rgba(255, 120, 130, 0.45)'
+            d.properties?.isClicked ? 'rgba(255, 50, 50, 1)' :
+              d.properties?.isHovered ? 'rgba(255, 191, 0, 1)' : 'rgba(255, 120, 130, 0.45)'
         }
         htmlElementsData={labels}
         htmlLat={(d: any) => d.lat}
@@ -277,10 +309,11 @@ const OceanGlobeView: React.FC = () => {
         }}
         onGlobeReady={() => {
           if (globeRef.current) {
-            // --- Mouse hover raycasting for cursor pointer ---
             const renderer = globeRef.current.renderer();
             const camera = globeRef.current.camera();
             const scene = globeRef.current.scene();
+
+            // --- Mouse hover raycasting for cursor pointer ---
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
 
@@ -420,7 +453,7 @@ const OceanGlobeView: React.FC = () => {
                   const maxLat = minLat + 5;
                   const minLng = Math.floor(lng / 5) * 5;
                   const maxLng = minLng + 5;
-                  
+
                   if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
                   setClickedCell({ minLat, maxLat, minLng, maxLng });
                   setIsClosing(false);
@@ -440,8 +473,8 @@ const OceanGlobeView: React.FC = () => {
             // Add aesthetic bloom effect using post-processing
             const composer = globeRef.current.postProcessingComposer();
             // params: resolution, strength, radius, threshold
-            // OPTIMIZATION: Halved resolution (window.innerWidth / 2) for 4x faster pixel processing without visual degradation on ultra-subtle bloom
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.005, 0.05, 0.98);
+            // Adjusted for a very subtle sweet spot
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.04, 0.2, 0.85);
             composer.addPass(bloomPass);
 
             let isZooming = false;
@@ -463,22 +496,8 @@ const OceanGlobeView: React.FC = () => {
             // Cinematic Entrance: Start zoomed out on the opposite side of the globe
             globeRef.current.pointOfView({ lat: 0, lng: -100, altitude: 3.5 }, 0);
 
-            // Wait 500ms for everything to render, then swoop into the Southern Indian Ocean
-            setTimeout(() => {
-              if (globeRef.current) {
-                // Centered just below India, zoomed in, keeping Central & South India fully visible
-                globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 4000);
-
-                // Unlock physics interaction once the animation finishes
-                setTimeout(() => {
-                  isIntroPlaying.current = false;
-                  if (globeRef.current) {
-                    // Set a soft boundary for the zoom catapult (altitude ~1.4)
-                    globeRef.current.controls().maxDistance = 240;
-                  }
-                }, 4000);
-              }
-            }, 500);
+            // Mark globe as ready, flight animation triggered by useEffect
+            setIsGlobeReady(true);
 
             const controls = globeRef.current.controls();
             // Add resistance feel by making rotation slightly heavier
@@ -577,11 +596,11 @@ const OceanGlobeView: React.FC = () => {
           </button>
         ) : (
           <>
-            <button className="pill-button" onClick={handleFocusBayOfBengal}>
-              Focus Bay of Bengal
-            </button>
             <button className="pill-button" onClick={handleFocusArabianSea}>
               Focus Arabian Sea
+            </button>
+            <button className="pill-button" onClick={handleFocusBayOfBengal}>
+              Focus Bay of Bengal
             </button>
           </>
         )}
@@ -676,6 +695,56 @@ const OceanGlobeView: React.FC = () => {
       )}
 
       <DepthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} predictions={dummyOceanData.ai_predictions} />
+
+      {showLoading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            zIndex: 9999,
+            backgroundColor: '#000',
+            opacity: fadeOutLoading ? 0 : 1,
+            transition: 'opacity 0.8s ease-in-out',
+            pointerEvents: 'none',
+            backgroundImage: `url(${LoadingBg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            paddingBottom: '60px',
+          }}
+        >
+          <h1 style={{
+            margin: 0,
+            fontSize: '56px',
+            fontWeight: 500,
+            fontFamily: "'Google Sans', 'Product Sans', sans-serif",
+            color: '#fff',
+            letterSpacing: '-1.5px',
+            animation: 'strobe 2s ease-in-out infinite',
+            textShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          }}>
+            OceanEmbed
+          </h1>
+          <p style={{
+            margin: '8px 0 0 0',
+            fontSize: '15px',
+            fontWeight: 400,
+            fontFamily: "'Google Sans', 'Product Sans', sans-serif",
+            color: 'rgba(255, 255, 255, 0.8)',
+            letterSpacing: '-0.2px',
+            textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+          }}>
+            Satellite Embedding-Based Ocean Reconstruction
+          </p>
+        </div>
+      )}
     </div>
   );
 };
