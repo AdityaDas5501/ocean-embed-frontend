@@ -264,6 +264,22 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
+  // Rounded rectangle shape
+  const roundedRectShape = useMemo(() => {
+    const w = 6, h = 6, r = 0.4;
+    const shape = new THREE.Shape();
+    shape.moveTo(-w / 2 + r, -h / 2);
+    shape.lineTo(w / 2 - r, -h / 2);
+    shape.absarc(w / 2 - r, -h / 2 + r, r, -Math.PI / 2, 0, false);
+    shape.lineTo(w / 2, h / 2 - r);
+    shape.absarc(w / 2 - r, h / 2 - r, r, 0, Math.PI / 2, false);
+    shape.lineTo(-w / 2 + r, h / 2);
+    shape.absarc(-w / 2 + r, h / 2 - r, r, Math.PI / 2, Math.PI, false);
+    shape.lineTo(-w / 2, -h / 2 + r);
+    shape.absarc(-w / 2 + r, -h / 2 + r, r, Math.PI, Math.PI * 1.5, false);
+    return shape;
+  }, []);
+
   // Use a logarithmic scale to smoothly separate the shallow layers.
   // Math.log(depth / 40 + 1) ensures 0m to 5m doesn't have a massive jump, 
   // keeping the gap near 0.32 units, which perfectly fits the 0.25 font size.
@@ -302,7 +318,7 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
           document.body.style.cursor = 'auto';
         }}
       >
-        <planeGeometry args={[6, 6]} />
+        <shapeGeometry args={[roundedRectShape]} />
         <meshPhysicalMaterial
           color={color}
           transparent
@@ -315,6 +331,7 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
           emissive={hovered ? color : new THREE.Color('#000000')}
           emissiveIntensity={hovered ? 0.3 : 0}
         />
+        <Edges linewidth={1} color="#ffffff" transparent opacity={0.2} />
       </mesh>
 
       {/* Hover ring indicator */}
@@ -402,14 +419,6 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
     </group>
   );
 };
-
-const BoundingFrame: React.FC = () => (
-  <mesh position={[0, 0, 0]}>
-    <boxGeometry args={[6, 9, 6]} />
-    <Edges linewidth={1} color="#ffffff" transparent opacity={0.15} />
-    <meshBasicMaterial visible={false} />
-  </mesh>
-);
 
 // ─── Surface View Info Panel ─────────────────────────────────────────────────
 
@@ -737,7 +746,6 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
                       <spotLight position={[0, 10, 0]} angle={0.5} penumbra={1} intensity={1} />
                       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
                       <group position={[-1.5, 0, 0]}>
-                        <BoundingFrame />
                         {predictions?.depths_m.map((depth, index) => (
                           <Layer
                             key={depth}
