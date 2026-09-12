@@ -699,14 +699,6 @@ const OceanGlobeView: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Model Validation</h4>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>RMSE:</span> {dummyOceanData.validation_metrics.RMSE}</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Corr:</span> {dummyOceanData.validation_metrics.correlation}</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Bias:</span> {dummyOceanData.validation_metrics.bias}</div>
-              </div>
-            </div>
 
             <button
               onClick={() => setIsModalOpen(true)}
