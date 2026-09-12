@@ -4,7 +4,7 @@ import type { GlobeMethods } from 'react-globe.gl';
 import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import DepthModal from './DepthModal';
-import { dummyOceanData } from '../utils/mockOceanData';
+import { regionalMockData } from '../utils/regionalMockData';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 
 interface GeoJsonGeometry {
@@ -714,7 +714,7 @@ const OceanGlobeView: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
-              Ocean State Profile
+              {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? 'Ocean State Profile' : 'Landmass Detected'}
             </h3>
             <button
               onClick={() => setIsClosing(true)}
@@ -734,50 +734,66 @@ const OceanGlobeView: React.FC = () => {
             <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {clickedCell.minLat}°N – {clickedCell.maxLat}°N</div>
             <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {clickedCell.minLng}°E – {clickedCell.maxLng}°E</div>
 
-            <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SST:</span> {dummyOceanData.surface_inputs.SST_celsius}°C</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSS:</span> {dummyOceanData.surface_inputs.SSS_psu} psu</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSH:</span> {dummyOceanData.surface_inputs.SSH_meters}m</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Currents:</span> {dummyOceanData.surface_inputs.currents_uv.join(', ')}</div>
-                <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Winds:</span> {dummyOceanData.surface_inputs.winds_uv.join(', ')} m/s</div>
+            {!regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? (
+              <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(255,50,50,0.1)', borderRadius: '12px', border: '1px solid rgba(255,50,50,0.2)' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#ff7882', textTransform: 'uppercase', letterSpacing: '1px' }}>No Ocean Telemetry Available</h4>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
+                  This grid cell covers landmass. Subsurface modeling and satellite telemetry are only available for oceanic regions.
+                </p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SST:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSS:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSH:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Currents:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')}</div>
+                    <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Winds:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
+                  </div>
+                </div>
 
-
-            <button
-              onClick={() => setIsModalOpen(true)}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '12px',
-                background: 'linear-gradient(135deg, #175d96, #0b355c)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
-                transition: 'all 0.2s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
-              }}
-            >
-              View 3D Subsurface Profile
-            </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  style={{
+                    marginTop: '20px',
+                    width: '100%',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #175d96, #0b355c)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
+                  }}
+                >
+                  View 3D Subsurface Profile
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <DepthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} predictions={dummyOceanData.ai_predictions} />
+      <DepthModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].ai_predictions : undefined} 
+        latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
+        lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
+      />
 
       {showLoading && (
         <div

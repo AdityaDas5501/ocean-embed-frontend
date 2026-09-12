@@ -13,9 +13,11 @@ interface DepthModalProps {
     depths_m: number[];
     temps_celsius: number[];
   };
+  latRange?: [number, number];
+  lngRange?: [number, number];
 }
 
-type LayerSurfaceData = number[][];
+type LayerSurfaceData = (number | null)[][];
 
 // ─── Task 1: High-Resolution Mock Data Generator ────────────────────────────
 
@@ -23,24 +25,36 @@ type LayerSurfaceData = number[][];
  * Generates a 20×20 grid of temperatures representing a 5° area at 0.25° resolution.
  * Uses combined sin/cos wave functions to create realistic spatial variation (±0.3°C).
  */
-const generateLayerSurfaceData = (baseTemp: number): LayerSurfaceData => {
+const generateLayerSurfaceData = (baseTemp: number, depth: number, lat: number, lng: number, isCoastline: boolean = false): LayerSurfaceData => {
   const gridSize = 20;
   const data: LayerSurfaceData = [];
 
+  // Create unique phase shifts based on location and depth
+  const phaseX = (lat * 0.5 + depth * 0.1) % (Math.PI * 2);
+  const phaseY = (lng * 0.5 + depth * 0.15) % (Math.PI * 2);
+
   for (let y = 0; y < gridSize; y++) {
-    const row: number[] = [];
+    const row: (number | null)[] = [];
     for (let x = 0; x < gridSize; x++) {
       // Normalize coordinates to [0, 1]
       const nx = x / (gridSize - 1);
       const ny = y / (gridSize - 1);
 
-      // Combined wave function for natural-looking variation
-      const wave1 = Math.sin(nx * Math.PI * 2.5) * Math.cos(ny * Math.PI * 2.0) * 0.15;
-      const wave2 = Math.cos(nx * Math.PI * 1.8 + 0.5) * Math.sin(ny * Math.PI * 3.0) * 0.10;
-      const wave3 = Math.sin((nx + ny) * Math.PI * 1.5) * 0.05;
+      // Combined wave function with phase shifts for unique topographical variation
+      const wave1 = Math.sin(nx * Math.PI * 2.5 + phaseX) * Math.cos(ny * Math.PI * 2.0 + phaseY) * 0.15;
+      const wave2 = Math.cos(nx * Math.PI * 1.8 + phaseY) * Math.sin(ny * Math.PI * 3.0 + phaseX) * 0.10;
+      const wave3 = Math.sin((nx + ny) * Math.PI * 1.5 + (phaseX * phaseY)) * 0.05;
 
       const variation = wave1 + wave2 + wave3;
-      row.push(baseTemp + variation);
+      let val: number | null = baseTemp + variation;
+      
+      if (isCoastline) {
+        if (x + y < 12 || (Math.random() < 0.1)) {
+          val = null;
+        }
+      }
+      
+      row.push(val);
     }
     data.push(row);
   }
@@ -131,12 +145,14 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
         const t = layerData[y][x];
-        if (t < min) min = t;
-        if (t > max) max = t;
+        if (t !== null) {
+          if (t < min) min = t;
+          if (t > max) max = t;
+        }
       }
     }
-    return { minTemp: min, maxTemp: max };
-  }, [layerData]);
+    return { minTemp: min === Infinity ? baseTemp : min, maxTemp: max === -Infinity ? baseTemp : max };
+  }, [layerData, baseTemp]);
 
   // Build geometry attributes
   const { positions, colors } = useMemo(() => {
@@ -151,15 +167,46 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
         const vertexIndex = iy * gridSize + ix;
         const temp = layerData[iy][ix];
 
-        // Modify Z (index 2) — PlaneGeometry lies on XY, Z is the "up" axis
-        posArray[vertexIndex * 3 + 2] = (temp - baseTemp) * zScale;
+        if (temp === null) {
+          // Average height of nearest non-null neighbors
+          let sum = 0;
+          let count = 0;
+          const searchRadius = 3;
+          for (let r = 1; r <= searchRadius; r++) {
+            for (let dy = -r; dy <= r; dy++) {
+              for (let dx = -r; dx <= r; dx++) {
+                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+                const ny = iy + dy;
+                const nx = ix + dx;
+                if (ny >= 0 && ny < gridSize && nx >= 0 && nx < gridSize) {
+                  const neighborTemp = layerData[ny][nx];
+                  if (neighborTemp !== null) {
+                    sum += neighborTemp;
+                    count++;
+                  }
+                }
+              }
+            }
+            if (count > 0) break;
+          }
+          const avgTemp = count > 0 ? sum / count : baseTemp;
+          
+          posArray[vertexIndex * 3 + 2] = (avgTemp - baseTemp) * zScale;
+          
+          colorArray[vertexIndex * 3 + 0] = 0.5;
+          colorArray[vertexIndex * 3 + 1] = 0.5;
+          colorArray[vertexIndex * 3 + 2] = 0.5;
+        } else {
+          // Modify Z (index 2) — PlaneGeometry lies on XY, Z is the "up" axis
+          posArray[vertexIndex * 3 + 2] = (temp - baseTemp) * zScale;
 
-        // Color
-        const normalizedT = (temp - minTemp) / tempRange;
-        const color = getViridisColor(normalizedT);
-        colorArray[vertexIndex * 3 + 0] = color.r;
-        colorArray[vertexIndex * 3 + 1] = color.g;
-        colorArray[vertexIndex * 3 + 2] = color.b;
+          // Color
+          const normalizedT = tempRange > 0 ? (temp - minTemp) / tempRange : 0.5;
+          const color = getViridisColor(normalizedT);
+          colorArray[vertexIndex * 3 + 0] = color.r;
+          colorArray[vertexIndex * 3 + 1] = color.g;
+          colorArray[vertexIndex * 3 + 2] = color.b;
+        }
       }
     }
 
@@ -434,12 +481,14 @@ const SurfaceInfoOverlay: React.FC<SurfaceInfoProps> = ({ depth, baseTemp, layer
     let max = -Infinity;
     for (const row of layerData) {
       for (const t of row) {
-        if (t < min) min = t;
-        if (t > max) max = t;
+        if (t !== null) {
+          if (t < min) min = t;
+          if (t > max) max = t;
+        }
       }
     }
-    return { minTemp: min, maxTemp: max };
-  }, [layerData]);
+    return { minTemp: min === Infinity ? baseTemp : min, maxTemp: max === -Infinity ? baseTemp : max };
+  }, [layerData, baseTemp]);
 
   return (
     <div style={{
@@ -522,7 +571,7 @@ const SurfaceColorbar: React.FC<{ minTemp: number; maxTemp: number }> = ({ minTe
 
 // ─── Main DepthModal Component ──────────────────────────────────────────────
 
-const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions }) => {
+const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange }) => {
   // Task 2: selected layer state
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
 
@@ -533,11 +582,14 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
     depth: number;
   } | null>(null);
 
+  const [isGenerating, setIsGenerating] = useState(false);
+
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedLayer(null);
       setSurfaceData(null);
+      setIsGenerating(false);
     }
   }, [isOpen]);
 
@@ -545,17 +597,36 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
   useEffect(() => {
     if (selectedLayer === null || !predictions) {
       setSurfaceData(null);
+      setIsGenerating(false);
       return;
     }
 
+    setIsGenerating(true);
+
     const layerIndex = predictions.depths_m.indexOf(selectedLayer);
-    if (layerIndex === -1) return;
+    if (layerIndex === -1) {
+      setIsGenerating(false);
+      return;
+    }
 
     const baseTemp = predictions.temps_celsius[layerIndex];
-    const layerData = generateLayerSurfaceData(baseTemp);
+    const lat = latRange ? latRange[0] : 0;
+    const lng = lngRange ? lngRange[0] : 0;
+    
+    const isCoastline = (latRange && lngRange) 
+      ? (latRange[0] === 15 && lngRange[0] === 80) || (latRange[0] === 10 && lngRange[0] === 75) || (latRange[0] === 20 && lngRange[0] === 85) || (latRange[0] === 15 && lngRange[0] === 85)
+      : false;
+      
+    const layerData = generateLayerSurfaceData(baseTemp, selectedLayer, lat, lng, isCoastline);
 
-    setSurfaceData({ layerData, baseTemp, depth: selectedLayer });
-  }, [selectedLayer, predictions]);
+    // Simulate a brief loading state for UX
+    const timer = setTimeout(() => {
+      setSurfaceData({ layerData, baseTemp, depth: selectedLayer });
+      setIsGenerating(false);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [selectedLayer, predictions, latRange, lngRange]);
 
   const handleLayerClick = (depth: number) => {
     setSelectedLayer(depth);
@@ -572,11 +643,13 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
     let max = -Infinity;
     for (const row of surfaceData.layerData) {
       for (const t of row) {
-        if (t < min) min = t;
-        if (t > max) max = t;
+        if (t !== null) {
+          if (t < min) min = t;
+          if (t > max) max = t;
+        }
       }
     }
-    return { min, max };
+    return { min: min === Infinity ? surfaceData.baseTemp : min, max: max === -Infinity ? surfaceData.baseTemp : max };
   }, [surfaceData]);
 
   const isSurfaceView = selectedLayer !== null && surfaceData !== null;
@@ -677,7 +750,29 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
             {/* 3D Canvas Area */}
             <div style={{ flex: 1, position: 'relative' }}>
               <AnimatePresence mode="wait">
-                {isSurfaceView ? (
+                {isGenerating ? (
+                  <motion.div
+                    key="loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}
+                  >
+                    <div style={{
+                      width: '40px', height: '40px',
+                      borderRadius: '50%',
+                      border: '3px solid rgba(139, 182, 214, 0.2)',
+                      borderTopColor: '#8bb6d6',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <span style={{ color: '#8bb6d6', fontSize: '13px', fontWeight: 500, letterSpacing: '1px' }}>
+                      RENDERING THERMOCLINE SURFACE...
+                    </span>
+                    <style>{`
+                      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    `}</style>
+                  </motion.div>
+                ) : isSurfaceView ? (
                   /* ── Surface Plot View ── */
                   <motion.div
                     key="surface-view"
@@ -696,8 +791,8 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions })
                       <SurfacePlot
                         layerData={surfaceData.layerData}
                         baseTemp={surfaceData.baseTemp}
-                        latRange={[10, 15]}
-                        lngRange={[85, 90]}
+                        latRange={latRange || [10, 15]}
+                        lngRange={lngRange || [85, 90]}
                       />
                     </Canvas>
 
