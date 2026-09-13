@@ -105,7 +105,7 @@ const getViridisColor = (t: number): THREE.Color => {
 
 interface SearchPinProps {
   position: [number, number, number];
-  temperature: number;
+  temperature?: number | null;
 }
 
 const SearchPin: React.FC<SearchPinProps> = ({ position, temperature }) => {
@@ -148,18 +148,20 @@ const SearchPin: React.FC<SearchPinProps> = ({ position, temperature }) => {
       </mesh>
 
       {/* Temperature Label */}
-      <Billboard position={[0.2, 0, lineLength + ballRadius]}>
-        <Text
-          fontSize={0.18}
-          color="#ffffff"
-          anchorX="left"
-          anchorY="middle"
-          outlineWidth={0.015}
-          outlineColor="#000000"
-        >
-          {`${temperature.toFixed(2)} °C`}
-        </Text>
-      </Billboard>
+      {temperature !== undefined && (
+        <Billboard position={[0.2, 0, lineLength + ballRadius]}>
+          <Text
+            fontSize={0.18}
+            color={temperature === null ? "rgba(255, 255, 255, 0.5)" : "#ffffff"}
+            anchorX="left"
+            anchorY="middle"
+            outlineWidth={0.015}
+            outlineColor="#000000"
+          >
+            {temperature === null ? "No Data (Land)" : `${temperature.toFixed(2)} °C`}
+          </Text>
+        </Billboard>
+      )}
     </group>
   );
 };
@@ -381,20 +383,24 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
         const fx = gx - ix;
         const fy = gy - iy;
 
-        const getVal = (row: number, col: number) => {
-          const v = layerData[row]?.[col];
-          return v !== null && v !== undefined ? v : baseTemp;
-        };
+        const raw00 = layerData[iy]?.[ix];
+        const raw10 = layerData[iy]?.[ix + 1];
+        const raw01 = layerData[iy + 1]?.[ix];
+        const raw11 = layerData[iy + 1]?.[ix + 1];
 
-        const v00 = getVal(iy, ix);
-        const v10 = getVal(iy, ix + 1);
-        const v01 = getVal(iy + 1, ix);
-        const v11 = getVal(iy + 1, ix + 1);
+        const isLand = raw00 === null && raw10 === null && raw01 === null && raw11 === null;
+
+        const getVal = (v: number | null | undefined) => v !== null && v !== undefined ? v : baseTemp;
+
+        const v00 = getVal(raw00);
+        const v10 = getVal(raw10);
+        const v01 = getVal(raw01);
+        const v11 = getVal(raw11);
 
         const interpTemp = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
         const zHeight = (interpTemp - baseTemp) * zScale;
 
-        return <SearchPin position={[localX, localY, zHeight]} temperature={interpTemp} />;
+        return <SearchPin position={[localX, localY, zHeight]} temperature={isLand ? null : interpTemp} />;
       })()}
     </group>
   );
