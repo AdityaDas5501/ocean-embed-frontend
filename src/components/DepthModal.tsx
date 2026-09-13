@@ -569,13 +569,46 @@ const SurfaceColorbar: React.FC<{ minTemp: number; maxTemp: number }> = ({ minTe
   </div>
 );
 
+// ─── Raycast Fixer ─────────────────────────────────────────────────────────────
+// Fixes R3F raycasting offset when CSS 100% scaling overrides the internal buffer size
+const RaycastFixer = () => {
+  const setEvents = useThree((state) => state.setEvents);
+  const get = useThree((state) => state.get);
+  
+  useEffect(() => {
+    const defaultCompute = get().events.compute;
+    setEvents({
+      compute: (event: any, state: any) => {
+        const nativeEvent = event.nativeEvent || event;
+        const { clientX, clientY } = nativeEvent;
+        
+        if (clientX === undefined) {
+          if (defaultCompute) return defaultCompute(event, state);
+          return;
+        }
+        
+        const rect = state.gl.domElement.getBoundingClientRect();
+        state.pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        state.pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        state.raycaster.setFromCamera(state.pointer, state.camera);
+      }
+    });
+    
+    return () => {
+      if (defaultCompute) {
+        setEvents({ compute: defaultCompute });
+      }
+    };
+  }, [setEvents, get]);
+  
+  return null;
+};
+
 // ─── Main DepthModal Component ──────────────────────────────────────────────
 
 const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange }) => {
-  // Task 2: selected layer state
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
 
-  // Generated surface data for the selected layer
   const [surfaceData, setSurfaceData] = useState<{
     layerData: LayerSurfaceData;
     baseTemp: number;
@@ -583,17 +616,23 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
   } | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setSelectedLayer(null);
       setSurfaceData(null);
       setIsGenerating(false);
+      setIsProfileLoading(false);
+    } else {
+      setIsProfileLoading(true);
+      const timer = setTimeout(() => {
+        setIsProfileLoading(false);
+      }, 800);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  // Generate surface data when a layer is selected
   useEffect(() => {
     if (selectedLayer === null || !predictions) {
       setSurfaceData(null);
@@ -619,7 +658,6 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
       
     const layerData = generateLayerSurfaceData(baseTemp, selectedLayer, lat, lng, isCoastline);
 
-    // Simulate a brief loading state for UX
     const timer = setTimeout(() => {
       setSurfaceData({ layerData, baseTemp, depth: selectedLayer });
       setIsGenerating(false);
@@ -636,7 +674,6 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     setSelectedLayer(null);
   };
 
-  // Compute surface min/max for colorbar
   const surfaceMinMax = useMemo(() => {
     if (!surfaceData) return { min: 0, max: 1 };
     let min = Infinity;
@@ -748,9 +785,37 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
             </div>
 
             {/* 3D Canvas Area */}
-            <div style={{ flex: 1, position: 'relative' }}>
+            <div className="depth-modal-canvas-container" style={{ flex: 1, position: 'relative' }}>
+              <style>{`
+                .depth-modal-canvas-container canvas {
+                  width: 100% !important;
+                  height: 100% !important;
+                }
+              `}</style>
               <AnimatePresence mode="wait">
-                {isGenerating ? (
+                {isProfileLoading ? (
+                  <motion.div
+                    key="profile-loader"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}
+                  >
+                    <div style={{
+                      width: '40px', height: '40px',
+                      borderRadius: '50%',
+                      border: '3px solid rgba(139, 182, 214, 0.2)',
+                      borderTopColor: '#8bb6d6',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <span style={{ color: '#8bb6d6', fontSize: '13px', fontWeight: 500, letterSpacing: '1px' }}>
+                      RENDERING 3D SUBSURFACE PROFILE...
+                    </span>
+                    <style>{`
+                      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                    `}</style>
+                  </motion.div>
+                ) : isGenerating ? (
                   <motion.div
                     key="loader"
                     initial={{ opacity: 0 }}
@@ -782,7 +847,8 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                     transition={{ duration: 0.35, ease: 'easeInOut' }}
                     style={{ position: 'absolute', inset: 0 }}
                   >
-                    <Canvas camera={{ position: [5, 5, 5], fov: 50 }}>
+                    <Canvas style={{ width: '100%', height: '100%' }} camera={{ position: [5, 5, 5], fov: 50 }}>
+                      <RaycastFixer />
                       <ambientLight intensity={0.5} />
                       <directionalLight position={[10, 10, 5]} intensity={1.5} />
                       <pointLight position={[-5, 5, -5]} color="#35b779" intensity={0.8} />
@@ -834,7 +900,8 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                     transition={{ duration: 0.35, ease: 'easeInOut' }}
                     style={{ position: 'absolute', inset: 0 }}
                   >
-                    <Canvas camera={{ position: [8, 5, 8], fov: 50 }}>
+                    <Canvas style={{ width: '100%', height: '100%' }} camera={{ position: [8, 5, 8], fov: 50 }}>
+                      <RaycastFixer />
                       <ambientLight intensity={0.4} />
                       <directionalLight position={[10, 10, 5]} intensity={1.5} />
                       <pointLight position={[-10, -10, -10]} color="#4b0082" intensity={2} />
