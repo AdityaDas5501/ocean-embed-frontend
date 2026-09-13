@@ -105,9 +105,10 @@ const getViridisColor = (t: number): THREE.Color => {
 
 interface SearchPinProps {
   position: [number, number, number];
+  temperature: number;
 }
 
-const SearchPin: React.FC<SearchPinProps> = ({ position }) => {
+const SearchPin: React.FC<SearchPinProps> = ({ position, temperature }) => {
 
   const lineLength = 1.5;
   const lineRadius = 0.015;
@@ -145,6 +146,20 @@ const SearchPin: React.FC<SearchPinProps> = ({ position }) => {
           transparent
         />
       </mesh>
+
+      {/* Temperature Label */}
+      <Billboard position={[0.2, 0, lineLength + ballRadius]}>
+        <Text
+          fontSize={0.18}
+          color="#ffffff"
+          anchorX="left"
+          anchorY="middle"
+          outlineWidth={0.015}
+          outlineColor="#000000"
+        >
+          {`${temperature.toFixed(2)} °C`}
+        </Text>
+      </Billboard>
     </group>
   );
 };
@@ -379,7 +394,7 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
         const interpTemp = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
         const zHeight = (interpTemp - baseTemp) * zScale;
 
-        return <SearchPin position={[localX, localY, zHeight]} />;
+        return <SearchPin position={[localX, localY, zHeight]} temperature={interpTemp} />;
       })()}
     </group>
   );
