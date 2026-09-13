@@ -497,14 +497,15 @@ const SurfaceInfoOverlay: React.FC<SurfaceInfoProps> = ({ depth, baseTemp, layer
       bottom: '24px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '6px',
+      gap: '8px',
       background: 'rgba(0, 0, 0, 0.5)',
       padding: '16px 20px',
       borderRadius: '16px',
       border: '1px solid rgba(255, 255, 255, 0.1)',
       backdropFilter: 'blur(8px)',
       pointerEvents: 'none',
-      maxWidth: '220px',
+      minWidth: '240px',
+      maxWidth: '300px',
     }}>
       <span style={{ color: '#8bb6d6', fontSize: '11px', letterSpacing: '1px', fontWeight: 600, textTransform: 'uppercase' }}>
         Layer Detail
@@ -513,19 +514,19 @@ const SurfaceInfoOverlay: React.FC<SurfaceInfoProps> = ({ depth, baseTemp, layer
         {depth}m depth
       </span>
       <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
         <span style={{ color: 'rgba(255,255,255,0.6)' }}>Base Temp</span>
-        <span style={{ color: '#fff', fontWeight: 500 }}>{baseTemp.toFixed(2)}°C</span>
+        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>{baseTemp.toFixed(2)}°C</span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
         <span style={{ color: 'rgba(255,255,255,0.6)' }}>Range</span>
-        <span style={{ color: '#fff', fontWeight: 500 }}>
+        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>
           {minTemp.toFixed(2)} – {maxTemp.toFixed(2)}°C
         </span>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
         <span style={{ color: 'rgba(255,255,255,0.6)' }}>Resolution</span>
-        <span style={{ color: '#fff', fontWeight: 500 }}>0.25° (20×20)</span>
+        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>0.25° (20×20)</span>
       </div>
     </div>
   );
