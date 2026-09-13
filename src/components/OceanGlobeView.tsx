@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import * as THREE from 'three';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { motion } from 'framer-motion';
 import DepthModal from './DepthModal';
+import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 
@@ -54,6 +56,7 @@ const OceanGlobeView: React.FC = () => {
   const [hoveredCell, setHoveredCell] = useState<Feature | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lon: number } | null>(null);
 
   const [isGlobeReady, setIsGlobeReady] = useState(false);
   const [isMapDataLoaded, setIsMapDataLoaded] = useState(false);
@@ -247,6 +250,52 @@ const OceanGlobeView: React.FC = () => {
     }
   };
 
+  // ── Coordinate Search Handler ──────────────────────────────────────────────
+  const handleCoordinateSearch = useCallback((coords: { lat: number; lon: number }) => {
+    const { lat, lon } = coords;
+
+    // Determine which region the coordinate falls into
+    const bob = REGION_BOUNDS['bob'];
+    const as_ = REGION_BOUNDS['as'];
+    let region: 'bob' | 'as' | null = null;
+
+    if (lat >= bob.minLat && lat <= bob.maxLat && lon >= bob.minLng && lon <= bob.maxLng) {
+      region = 'bob';
+    } else if (lat >= as_.minLat && lat <= as_.maxLat && lon >= as_.minLng && lon <= as_.maxLng) {
+      region = 'as';
+    }
+
+    if (!region) return;
+
+    // Store the searched location for the pin
+    setSearchedLocation({ lat, lon });
+
+    // Focus the region
+    setFocusedRegion(region);
+    focusedRegionRef.current = region;
+
+    // Fly the camera to the searched coordinate
+    if (globeRef.current) {
+      globeRef.current.pointOfView({ lat, lng: lon, altitude: 0.35 }, 2000);
+      isFlightAnimatingRef.current = true;
+      setTimeout(() => {
+        isFlightAnimatingRef.current = false;
+      }, 2000);
+    }
+
+    // Compute the parent 5° grid cell and open the sidebar
+    const gridLat = Math.floor(lat / 5) * 5;
+    const gridLng = Math.floor(lon / 5) * 5;
+
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    setClickedCell({
+      minLat: gridLat,
+      maxLat: gridLat + 5,
+      minLng: gridLng,
+      maxLng: gridLng + 5,
+    });
+    setIsClosing(false);
+  }, []);
 
 
 
@@ -319,10 +368,21 @@ const OceanGlobeView: React.FC = () => {
             d.properties?.isClicked ? 'rgba(255, 50, 50, 1)' :
               d.properties?.isHovered ? 'rgba(255, 191, 0, 1)' : 'rgba(255, 120, 130, 0.45)'
         }
-        htmlElementsData={labels}
+        htmlElementsData={[
+          ...labels,
+          ...(searchedLocation ? [{ text: '', lat: searchedLocation.lat, lng: searchedLocation.lon, isPin: true }] : []),
+        ]}
         htmlLat={(d: any) => d.lat}
         htmlLng={(d: any) => d.lng}
         htmlElement={(d: any) => {
+          // Drop pin element
+          if (d.isPin) {
+            const pin = document.createElement('div');
+            pin.className = 'globe-drop-pin';
+            pin.innerHTML = '<div class="pin-head"></div><div class="pin-stem"></div>';
+            return pin;
+          }
+
           const container = document.createElement('div');
           const el = document.createElement('span');
           el.className = 'globe-label';
@@ -665,37 +725,41 @@ const OceanGlobeView: React.FC = () => {
         }}
       />
 
-      {/* Overlay controls */}
-      <div
-        className="glass-panel"
-        onMouseEnter={() => setHoveredCell(null)}
-        style={{
-          position: 'absolute',
-          bottom: '32px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          gap: '16px',
-          padding: '16px 24px',
-          borderRadius: '24px',
-          zIndex: 10
-        }}
-      >
-        {focusedRegion ? (
-          <button className="pill-button" onClick={handleBackToOverview}>
-            ← Back to Overview
-          </button>
-        ) : (
-          <>
-            <button className="pill-button" onClick={handleFocusArabianSea}>
-              Focus Arabian Sea
+      {/* Interactive elements */}
+      {introFinished && (
+        <motion.div
+          className="glass-panel"
+          onMouseEnter={() => setHoveredCell(null)}
+          initial={{ opacity: 0, y: 20, x: '-50%', filter: 'blur(10px)' }}
+          animate={{ opacity: 1, y: 0, x: '-50%', filter: 'blur(0px)' }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          style={{
+            position: 'absolute',
+            bottom: '32px',
+            left: '50%',
+            display: 'flex',
+            gap: '16px',
+            padding: '16px 24px',
+            borderRadius: '24px',
+            zIndex: 10
+          }}
+        >
+          {focusedRegion ? (
+            <button className="pill-button" onClick={handleBackToOverview}>
+              ← Back to Overview
             </button>
-            <button className="pill-button" onClick={handleFocusBayOfBengal}>
-              Focus Bay of Bengal
-            </button>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <button className="pill-button" onClick={handleFocusArabianSea}>
+                Focus Arabian Sea
+              </button>
+              <button className="pill-button" onClick={handleFocusBayOfBengal}>
+                Focus Bay of Bengal
+              </button>
+            </>
+          )}
+        </motion.div>
+      )}
 
       {/* Grid cell popup — only shown when in focus and a cell is clicked */}
       {clickedCell && focusedRegion && (
@@ -720,6 +784,7 @@ const OceanGlobeView: React.FC = () => {
               onClick={() => {
                 setIsClosing(true);
                 setIsModalOpen(false);
+                setSearchedLocation(null);
               }}
               style={{
                 background: 'none',
@@ -796,7 +861,13 @@ const OceanGlobeView: React.FC = () => {
         predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].ai_predictions : undefined} 
         latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
         lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
+        searchedLocation={searchedLocation}
       />
+
+      {/* Coordinate Search Bar — hidden during loading/intro */}
+      {introFinished && (
+        <CoordinateSearch onSearch={handleCoordinateSearch} />
+      )}
 
       {showLoading && (
         <div

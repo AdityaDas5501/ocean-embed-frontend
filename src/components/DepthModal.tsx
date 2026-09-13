@@ -15,6 +15,7 @@ interface DepthModalProps {
   };
   latRange?: [number, number];
   lngRange?: [number, number];
+  searchedLocation?: { lat: number; lon: number } | null;
 }
 
 type LayerSurfaceData = (number | null)[][];
@@ -100,11 +101,60 @@ const getViridisColor = (t: number): THREE.Color => {
 
 // ─── Task 3: SurfacePlot Component ──────────────────────────────────────────
 
+// ─── 3D Search Pin Marker ────────────────────────────────────────────────────
+
+interface SearchPinProps {
+  position: [number, number, number];
+}
+
+const SearchPin: React.FC<SearchPinProps> = ({ position }) => {
+
+  const lineLength = 1.5;
+  const lineRadius = 0.015;
+  const ballRadius = 0.08;
+  const surfaceOffset = 0.02; // Small offset to prevent clipping into the flat triangles
+
+  return (
+    <group position={[position[0], position[1], position[2] + surfaceOffset]}>
+      {/* Thin white line touching the surface */}
+      <mesh position={[0, 0, lineLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[lineRadius, lineRadius, lineLength, 8]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={0.5}
+          roughness={0.2}
+          metalness={0.1}
+        />
+      </mesh>
+
+      {/* Small red ball on top (Glassy effect) */}
+      <mesh position={[0, 0, lineLength + ballRadius]}>
+        <sphereGeometry args={[ballRadius, 32, 32]} />
+        <meshPhysicalMaterial
+          color="#ff3333"
+          emissive="#ff0000"
+          emissiveIntensity={0.4}
+          roughness={0.05}
+          metalness={0.1}
+          transmission={0.9}
+          thickness={0.5}
+          ior={1.5}
+          clearcoat={1.0}
+          clearcoatRoughness={0.1}
+          transparent
+        />
+      </mesh>
+    </group>
+  );
+};
+
 interface SurfacePlotProps {
   layerData: LayerSurfaceData;
   baseTemp: number;
   latRange?: [number, number]; // [minLat, maxLat]
   lngRange?: [number, number]; // [minLng, maxLng]
+  searchedLocation?: { lat: number; lon: number } | null;
 }
 
 const SurfacePlot: React.FC<SurfacePlotProps> = ({
@@ -112,6 +162,7 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
   baseTemp,
   latRange = [10, 15],
   lngRange = [85, 90],
+  searchedLocation,
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -293,6 +344,43 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
           </Billboard>
         );
       })}
+
+      {/* ── Searched Location 3D Marker ── */}
+      {searchedLocation && (() => {
+        const normLat = (searchedLocation.lat - latRange[0]) / (latRange[1] - latRange[0]);
+        const normLon = (searchedLocation.lon - lngRange[0]) / (lngRange[1] - lngRange[0]);
+
+        // Clamp to valid range
+        if (normLat < 0 || normLat > 1 || normLon < 0 || normLon > 1) return null;
+
+        // Map to local mesh coordinates
+        const localX = (normLon - 0.5) * planeSize;
+        const localY = (normLat - 0.5) * planeSize;
+
+        // Bilinear interpolation to find Z height
+        const gridSize = 20;
+        const gx = normLon * (gridSize - 1);
+        const gy = (1 - normLat) * (gridSize - 1);
+        const ix = Math.min(Math.floor(gx), gridSize - 2);
+        const iy = Math.min(Math.floor(gy), gridSize - 2);
+        const fx = gx - ix;
+        const fy = gy - iy;
+
+        const getVal = (row: number, col: number) => {
+          const v = layerData[row]?.[col];
+          return v !== null && v !== undefined ? v : baseTemp;
+        };
+
+        const v00 = getVal(iy, ix);
+        const v10 = getVal(iy, ix + 1);
+        const v01 = getVal(iy + 1, ix);
+        const v11 = getVal(iy + 1, ix + 1);
+
+        const interpTemp = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
+        const zHeight = (interpTemp - baseTemp) * zScale;
+
+        return <SearchPin position={[localX, localY, zHeight]} />;
+      })()}
     </group>
   );
 };
@@ -607,7 +695,7 @@ const RaycastFixer = () => {
 
 // ─── Main DepthModal Component ──────────────────────────────────────────────
 
-const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange }) => {
+const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange, searchedLocation }) => {
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
 
   const [surfaceData, setSurfaceData] = useState<{
@@ -860,6 +948,7 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                         baseTemp={surfaceData.baseTemp}
                         latRange={latRange || [10, 15]}
                         lngRange={lngRange || [85, 90]}
+                        searchedLocation={searchedLocation}
                       />
                     </Canvas>
 

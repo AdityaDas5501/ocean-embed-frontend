@@ -114,3 +114,184 @@ body,
 .pill-button:active {
   transform: translateY(0);
 }
+
+/* ─── Coordinate Search Bar ──────────────────────────────────────────────── */
+
+@keyframes pinPulse {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  50%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1);   opacity: 0; }
+}
+
+@keyframes pinBounce {
+  0%   { transform: translateY(-40px); opacity: 0; }
+  60%  { transform: translateY(4px);   opacity: 1; }
+  80%  { transform: translateY(-2px);  opacity: 1; }
+  100% { transform: translateY(0);     opacity: 1; }
+}
+
+@keyframes toastFadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastFadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+
+.coordinate-search {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: rgba(10, 25, 45, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(139, 182, 214, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  z-index: 50;
+  font-family: 'Inter', sans-serif;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+}
+
+.coordinate-search:focus-within {
+  border-color: rgba(139, 182, 214, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(139, 182, 214, 0.15);
+}
+
+.coordinate-search .coord-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.coordinate-search .coord-input {
+  width: 58px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  -moz-appearance: textfield;
+}
+
+.coordinate-search .coord-input::-webkit-outer-spin-button,
+.coordinate-search .coord-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.coordinate-search .coord-input:focus {
+  border-color: rgba(139, 182, 214, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.coordinate-search .coord-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.coordinate-search .coord-unit {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.3px;
+  user-select: none;
+}
+
+.coordinate-search .coord-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+.coordinate-search .search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(139, 182, 214, 0.2);
+  color: #8bb6d6;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.coordinate-search .search-btn:hover {
+  background: rgba(139, 182, 214, 0.35);
+  transform: scale(1.05);
+}
+
+.coordinate-search .search-btn:active {
+  transform: scale(0.95);
+}
+
+.search-error-toast {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(40, 10, 10, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 60, 60, 0.25);
+  color: #ff6b6b;
+  font-size: 12px;
+  font-weight: 400;
+  font-family: 'Inter', sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: toastFadeIn 0.25s ease forwards;
+}
+
+.search-error-toast.hiding {
+  animation: toastFadeOut 0.3s ease forwards;
+}
+
+/* Globe drop pin */
+.globe-drop-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: pinBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  pointer-events: none;
+}
+
+.globe-drop-pin .pin-head {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #60d4ff, #0091ff);
+  box-shadow: 0 0 10px 3px rgba(0, 145, 255, 0.5), 0 0 30px 6px rgba(0, 145, 255, 0.2);
+  position: relative;
+}
+
+.globe-drop-pin .pin-head::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(96, 212, 255, 0.4);
+  animation: pinPulse 2s ease-in-out infinite;
+}
+
+.globe-drop-pin .pin-stem {
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(to bottom, rgba(0, 145, 255, 0.8), rgba(0, 145, 255, 0));
+}
