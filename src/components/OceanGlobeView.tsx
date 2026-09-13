@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import * as THREE from 'three';
+import { Suspense, lazy } from 'react';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { motion } from 'framer-motion';
-import DepthModal from './DepthModal';
+const DepthModal = lazy(() => import('./DepthModal'));
 import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
 import LoadingBg from '../assets/images/Loading-Background.webp';
@@ -622,11 +623,12 @@ const OceanGlobeView: React.FC = () => {
             };
 
             // Add aesthetic bloom effect using post-processing
-            const composer = globeRef.current.postProcessingComposer();
-            // params: resolution, strength, radius, threshold
-            // Adjusted for a very subtle sweet spot
-            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.04, 0.2, 0.85);
-            composer.addPass(bloomPass);
+            // OPTIMIZATION: Only enable Bloom if the device has a decent CPU (>4 cores) to save performance on low-end
+            if (navigator.hardwareConcurrency === undefined || navigator.hardwareConcurrency > 4) {
+              const composer = globeRef.current.postProcessingComposer();
+              const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.04, 0.2, 0.85);
+              composer.addPass(bloomPass);
+            }
 
             let isZooming = false;
             let zoomSnapTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -668,8 +670,16 @@ const OceanGlobeView: React.FC = () => {
             const softMinPol = (80 * Math.PI) / 180;
             const softMaxPol = (90 * Math.PI) / 180;
 
+            let isDragging = false;
+
+            controls.addEventListener('start', () => {
+              isDragging = true;
+              if (!reqIdRef.current) applyResistance();
+            });
+
             // Event listener for snapping back (catapult effect) when they let go
             controls.addEventListener('end', () => {
+              isDragging = false;
               // Prevent rotation snap from fighting with zoom wheel events (glitching)
               if (isZooming || !globeRef.current || isIntroPlaying.current || focusedRegionRef.current) return;
 
@@ -715,12 +725,17 @@ const OceanGlobeView: React.FC = () => {
                 }
 
                 lastRotOutAmount = rotOutAmount;
-              }
-              reqIdRef.current = requestAnimationFrame(applyResistance);
-            };
 
-            // Start the physics loop
-            applyResistance();
+                // OPTIMIZATION: Only run the loop if dragging or snapping back
+                if (isDragging || rotOutAmount > 0) {
+                  reqIdRef.current = requestAnimationFrame(applyResistance);
+                } else {
+                  reqIdRef.current = null;
+                }
+              } else {
+                reqIdRef.current = null;
+              }
+            };
           }
         }}
       />
@@ -855,14 +870,31 @@ const OceanGlobeView: React.FC = () => {
         </div>
       )}
 
-      <DepthModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].ai_predictions : undefined} 
-        latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
-        lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
-        searchedLocation={searchedLocation}
-      />
+      <Suspense fallback={
+        isModalOpen ? (
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            zIndex: 100,
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid rgba(139, 182, 214, 0.2)', borderTopColor: '#8bb6d6', animation: 'spin 1s linear infinite' }} />
+              <span style={{ color: '#8bb6d6', fontSize: '13px', fontWeight: 500, letterSpacing: '1px' }}>LOADING SUBSURFACE ENGINE...</span>
+              <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            </div>
+          </div>
+        ) : null
+      }>
+        <DepthModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].ai_predictions : undefined} 
+          latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
+          lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
+          searchedLocation={searchedLocation}
+        />
+      </Suspense>
 
       {/* Coordinate Search Bar — hidden during loading/intro */}
       {introFinished && (
