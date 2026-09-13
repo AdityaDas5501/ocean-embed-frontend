@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Edges, Billboard } from '@react-three/drei';
@@ -964,13 +964,15 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                       <pointLight position={[-5, 5, -5]} color="#35b779" intensity={0.8} />
                       <spotLight position={[0, 8, 0]} angle={0.6} penumbra={1} intensity={1} />
                       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
-                      <SurfacePlot
-                        layerData={surfaceData.layerData}
-                        baseTemp={surfaceData.baseTemp}
-                        latRange={latRange || [10, 15]}
-                        lngRange={lngRange || [85, 90]}
-                        searchedLocation={searchedLocation}
-                      />
+                      <Suspense fallback={null}>
+                        <SurfacePlot
+                          layerData={surfaceData.layerData}
+                          baseTemp={surfaceData.baseTemp}
+                          latRange={latRange || [10, 15]}
+                          lngRange={lngRange || [85, 90]}
+                          searchedLocation={searchedLocation}
+                        />
+                      </Suspense>
                     </Canvas>
 
                     {/* Surface info overlay */}
@@ -1018,17 +1020,19 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                       <pointLight position={[-10, -10, -10]} color="#4b0082" intensity={2} />
                       <spotLight position={[0, 10, 0]} angle={0.5} penumbra={1} intensity={1} />
                       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
-                      <group position={[-1.5, 0, 0]}>
-                        {predictions?.depths_m.map((depth, index) => (
-                          <Layer
-                            key={depth}
-                            depth={depth}
-                            temp={predictions.temps_celsius[index]}
-                            index={index}
-                            onClick={() => handleLayerClick(depth)}
-                          />
-                        ))}
-                      </group>
+                      <Suspense fallback={null}>
+                        <group position={[-1.5, 0, 0]}>
+                          {predictions?.depths_m.map((depth, index) => (
+                            <Layer
+                              key={depth}
+                              depth={depth}
+                              temp={predictions.temps_celsius[index]}
+                              index={index}
+                              onClick={() => handleLayerClick(depth)}
+                            />
+                          ))}
+                        </group>
+                      </Suspense>
                     </Canvas>
 
                     {/* Colorbar Legend Overlay */}
