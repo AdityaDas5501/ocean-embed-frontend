@@ -717,7 +717,10 @@ const OceanGlobeView: React.FC = () => {
               {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? 'Ocean State Profile' : 'Landmass Detected'}
             </h3>
             <button
-              onClick={() => setIsClosing(true)}
+              onClick={() => {
+                setIsClosing(true);
+                setIsModalOpen(false);
+              }}
               style={{
                 background: 'none',
                 border: 'none',
