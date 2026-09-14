@@ -928,8 +928,8 @@ const OceanGlobeView: React.FC = () => {
           <h1 style={{
             margin: 0,
             fontSize: '56px',
-            fontWeight: 500,
-            fontFamily: "'Google Sans', 'Product Sans', sans-serif",
+            fontWeight: 622,
+            fontFamily: "'Syne', sans-serif",
             color: '#fff',
             letterSpacing: '-1.5px',
             animation: 'strobe 2s ease-in-out infinite',
