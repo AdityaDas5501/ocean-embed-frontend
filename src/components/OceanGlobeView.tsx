@@ -9,6 +9,7 @@ const DepthModal = lazy(() => import('./DepthModal'));
 import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
 import LoadingBg from '../assets/images/Loading-Background.webp';
+import Logo from '../assets/logo.svg';
 
 interface GeoJsonGeometry {
   type: string;
@@ -900,6 +901,33 @@ const OceanGlobeView: React.FC = () => {
       {introFinished && (
         <CoordinateSearch onSearch={handleCoordinateSearch} />
       )}
+
+      <motion.div
+        initial={{ opacity: 0, y: -20, filter: 'blur(10px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+        style={{
+          position: 'absolute',
+          top: '32px',
+          left: '36px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          zIndex: 50,
+          pointerEvents: 'none'
+        }}
+      >
+        <img src={Logo} alt="OceanEmbed Logo" style={{ width: '40px', height: '40px' }} />
+        <h2 style={{
+          margin: 0,
+          color: '#fff',
+          fontFamily: "'Syne', sans-serif",
+          fontSize: '24px',
+          fontWeight: 600,
+          letterSpacing: '-0.5px',
+          textShadow: '0 2px 10px rgba(0,0,0,0.5)'
+        }}>OceanEmbed</h2>
+      </motion.div>
 
       {showLoading && (
         <div
