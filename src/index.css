@@ -117,16 +117,13 @@ body,
 /* ─── Coordinate Search Bar ──────────────────────────────────────────────── */
 
 @keyframes pinPulse {
-  0%   { transform: scale(1);   opacity: 0.8; }
-  50%  { transform: scale(1.6); opacity: 0; }
-  100% { transform: scale(1);   opacity: 0; }
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
 }
 
-@keyframes pinBounce {
-  0%   { transform: translateY(-40px); opacity: 0; }
-  60%  { transform: translateY(4px);   opacity: 1; }
-  80%  { transform: translateY(-2px);  opacity: 1; }
-  100% { transform: translateY(0);     opacity: 1; }
+@keyframes pinFadeIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
 @keyframes toastFadeIn {
@@ -266,32 +263,37 @@ body,
 /* Globe drop pin */
 .globe-drop-pin {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  animation: pinBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  justify-content: center;
   pointer-events: none;
+  position: relative;
 }
 
 .globe-drop-pin .pin-head {
-  width: 14px;
-  height: 14px;
+  animation: pinFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #60d4ff, #0091ff);
-  box-shadow: 0 0 10px 3px rgba(0, 145, 255, 0.5), 0 0 30px 6px rgba(0, 145, 255, 0.2);
+  background: #ffffff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.4), inset 0 0 2px rgba(0, 0, 0, 0.5);
   position: relative;
+  z-index: 2;
 }
 
 .globe-drop-pin .pin-head::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
-  border: 2px solid rgba(96, 212, 255, 0.4);
-  animation: pinPulse 2s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.4);
+  animation: pinPulse 2s ease-out infinite;
+  z-index: 1;
 }
 
 .globe-drop-pin .pin-stem {
-  width: 2px;
-  height: 16px;
-  background: linear-gradient(to bottom, rgba(0, 145, 255, 0.8), rgba(0, 145, 255, 0));
+  display: none;
 }

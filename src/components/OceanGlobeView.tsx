@@ -341,6 +341,42 @@ const OceanGlobeView: React.FC = () => {
     return polys;
   }, [landPolygons, hoveredCell, clickedCellPolygon, clickedCell]);
 
+  const htmlElements = useMemo(() => {
+    return [
+      ...labels,
+      ...(searchedLocation ? [{ text: '', lat: searchedLocation.lat, lng: searchedLocation.lon, isPin: true }] : []),
+    ];
+  }, [labels, searchedLocation]);
+
+  const getHtmlLat = useCallback((d: any) => d.lat, []);
+  const getHtmlLng = useCallback((d: any) => d.lng, []);
+  const getHtmlAltitude = useCallback((d: any) => d.isPin ? 0.02 : 0, []);
+  const getHtmlElement = useCallback((d: any) => {
+    if (d.isPin) {
+      const pin = document.createElement('div');
+      pin.className = 'globe-drop-pin';
+      pin.innerHTML = '<div class="pin-head"></div><div class="pin-stem"></div>';
+      return pin;
+    }
+
+    const container = document.createElement('div');
+    const el = document.createElement('span');
+    el.className = 'globe-label';
+    el.innerHTML = d.text;
+    el.style.color = d.isOcean ? 'rgba(255, 255, 255, 0.45)' : 'rgba(120, 120, 120, 0.6)';
+    el.style.fontSize = d.isOcean ? '13px' : '10px';
+    el.style.fontWeight = '300';
+    el.style.fontFamily = 'Inter, sans-serif';
+    el.style.letterSpacing = d.isOcean ? '1px' : '0.5px';
+    el.style.textShadow = d.isOcean ? 'none' : '0px 0px 2px rgba(255,255,255,0.8)';
+    el.style.whiteSpace = 'nowrap';
+    
+    container.style.pointerEvents = 'none';
+    container.style.zIndex = '1';
+    container.appendChild(el);
+    return container;
+  }, []);
+
   return (
     <div className={showLoading ? 'loading-active' : (!introFinished ? 'intro-active' : '')} style={{ position: 'relative', width: '100%', height: '100%', background: '#000' }}>
       <Globe
@@ -371,38 +407,11 @@ const OceanGlobeView: React.FC = () => {
             d.properties?.isClicked ? 'rgba(255, 50, 50, 1)' :
               d.properties?.isHovered ? 'rgba(255, 191, 0, 1)' : 'rgba(255, 120, 130, 0.45)'
         }
-        htmlElementsData={[
-          ...labels,
-          ...(searchedLocation ? [{ text: '', lat: searchedLocation.lat, lng: searchedLocation.lon, isPin: true }] : []),
-        ]}
-        htmlLat={(d: any) => d.lat}
-        htmlLng={(d: any) => d.lng}
-        htmlElement={(d: any) => {
-          // Drop pin element
-          if (d.isPin) {
-            const pin = document.createElement('div');
-            pin.className = 'globe-drop-pin';
-            pin.innerHTML = '<div class="pin-head"></div><div class="pin-stem"></div>';
-            return pin;
-          }
-
-          const container = document.createElement('div');
-          const el = document.createElement('span');
-          el.className = 'globe-label';
-          el.innerHTML = d.text;
-          el.style.color = d.isOcean ? 'rgba(255, 255, 255, 0.45)' : 'rgba(120, 120, 120, 0.6)';
-          el.style.fontSize = d.isOcean ? '13px' : '10px';
-          el.style.fontWeight = '300';
-          el.style.fontFamily = 'Inter, sans-serif';
-          el.style.letterSpacing = d.isOcean ? '1px' : '0.5px';
-          el.style.textShadow = d.isOcean ? 'none' : '0px 0px 2px rgba(255,255,255,0.8)';
-          el.style.whiteSpace = 'nowrap';
-          
-          container.style.pointerEvents = 'none';
-          container.style.zIndex = '1';
-          container.appendChild(el);
-          return container;
-        }}
+        htmlElementsData={htmlElements}
+        htmlLat={getHtmlLat}
+        htmlLng={getHtmlLng}
+        htmlAltitude={getHtmlAltitude}
+        htmlElement={getHtmlElement}
         onGlobeReady={() => {
           if (globeRef.current) {
             const renderer = globeRef.current.renderer();
