@@ -243,6 +243,7 @@ const OceanGlobeView: React.FC = () => {
     focusedRegionRef.current = null;
     setClickedCell(null);
     setHoveredCell(null);
+    setSearchedLocation(null);
     if (globeRef.current) {
       globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 1500);
       isFlightAnimatingRef.current = true;
@@ -800,6 +801,13 @@ const OceanGlobeView: React.FC = () => {
               onClick={() => {
                 setIsClosing(true);
                 setIsModalOpen(false);
+                if (searchedLocation) {
+                  if (focusedRegion === 'bob') {
+                    handleFocusBayOfBengal();
+                  } else if (focusedRegion === 'as') {
+                    handleFocusArabianSea();
+                  }
+                }
                 setSearchedLocation(null);
               }}
               style={{
