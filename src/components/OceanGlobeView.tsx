@@ -59,6 +59,11 @@ const OceanGlobeView: React.FC = () => {
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const searchedLocationRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  useEffect(() => {
+    searchedLocationRef.current = searchedLocation;
+  }, [searchedLocation]);
 
   const [isGlobeReady, setIsGlobeReady] = useState(false);
   const [isMapDataLoaded, setIsMapDataLoaded] = useState(false);
@@ -619,6 +624,13 @@ const OceanGlobeView: React.FC = () => {
                     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
                     setClickedCell({ minLat, maxLat, minLng, maxLng });
                     setIsClosing(false);
+                    if (searchedLocationRef.current) {
+                      if (currentRegion === 'bob') {
+                        handleFocusBayOfBengal();
+                      } else if (currentRegion === 'as') {
+                        handleFocusArabianSea();
+                      }
+                    }
                     setSearchedLocation(null);
                   }
                 }
