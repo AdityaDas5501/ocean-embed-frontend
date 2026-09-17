@@ -805,33 +805,8 @@ const OceanGlobeView: React.FC = () => {
 
       {/* Grid cell popup — only shown when in focus and a cell is clicked */}
       {clickedCell && focusedRegion && (
-        <div
-          className={`sidebar-panel ${isClosing ? 'sidebar-panel-closing' : ''}`}
-          onMouseEnter={() => setHoveredCell(null)}
-          onAnimationEnd={() => {
-            if (isClosing) {
-              // Sidebar takes 400ms to close. Wait 400ms more for the 800ms fade to finish completely.
-              closeTimeoutRef.current = setTimeout(() => {
-                setClickedCell(null);
-                setIsClosing(false);
-              }, 400);
-            }
-          }}
-        >
-          <div style={{
-            position: 'absolute',
-            left: '-64px',
-            top: '32px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            background: 'rgba(4, 21, 45, 0.85)',
-            backdropFilter: 'blur(16px)',
-            padding: '12px',
-            borderRadius: '16px',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            boxShadow: '-4px 0 20px rgba(0,0,0,0.3)',
-          }}>
+        <>
+          <div className={`left-toolbar ${isClosing ? 'left-toolbar-closing' : ''}`}>
             <button
               onClick={() => setActiveView('dashboard')}
               title="Main Dashboard"
@@ -870,6 +845,19 @@ const OceanGlobeView: React.FC = () => {
             </button>
           </div>
 
+          <div
+            className={`sidebar-panel ${isClosing ? 'sidebar-panel-closing' : ''}`}
+          onMouseEnter={() => setHoveredCell(null)}
+          onAnimationEnd={() => {
+            if (isClosing) {
+              // Sidebar takes 400ms to close. Wait 400ms more for the 800ms fade to finish completely.
+              closeTimeoutRef.current = setTimeout(() => {
+                setClickedCell(null);
+                setIsClosing(false);
+              }, 400);
+            }
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
               {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] 
@@ -970,6 +958,7 @@ const OceanGlobeView: React.FC = () => {
             )}
           </div>
         </div>
+        </>
       )}
 
       <Suspense fallback={

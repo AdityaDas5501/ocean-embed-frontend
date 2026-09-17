@@ -63,6 +63,50 @@
   animation: slideOutRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
+@keyframes slideInLeft {
+  from { 
+    transform: translate(-100%, -50%); 
+    opacity: 0;
+  }
+  to { 
+    transform: translate(0, -50%); 
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutLeft {
+  from { 
+    transform: translate(0, -50%); 
+    opacity: 1;
+  }
+  to { 
+    transform: translate(-100%, -50%); 
+    opacity: 0;
+  }
+}
+
+.left-toolbar {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(4, 21, 45, 0.85);
+  backdrop-filter: blur(16px);
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 4px 8px 32px rgba(0,0,0,0.3);
+  z-index: 9999;
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.left-toolbar-closing {
+  animation: slideOutLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
 html,
 body,
 #root {
