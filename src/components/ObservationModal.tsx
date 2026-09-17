@@ -87,13 +87,15 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     'Winds': { title: 'Surface Winds Magnitude', color: '#d4a5a5', unit: ' m/s' },
   }[currentMetricType];
 
+  const effectiveTab = (currentMetricType === 'Currents' || currentMetricType === 'Winds') ? activeTab : 'magnitude';
+
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.05 } }}
           transition={{ duration: 0.3 }}
           onAnimationComplete={handleAnimationComplete}
           onClick={onClose}
@@ -143,7 +145,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '8px' }}>
                   <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: config.color, letterSpacing: '0.5px' }}>
-                    {activeTab === 'direction' ? config.title.replace('Magnitude', 'Direction') : config.title}
+                    {effectiveTab === 'direction' ? config.title.replace('Magnitude', 'Direction') : config.title}
                   </h2>
                   {(currentMetricType === 'Currents' || currentMetricType === 'Winds') && (
                     <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '12px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.5)' }}>
@@ -169,7 +171,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                   )}
                 </div>
                 <div style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.5)' }}>
-                  {activeTab === 'magnitude' ? (
+                  {effectiveTab === 'magnitude' ? (
                     latRange && lngRange 
                       ? `14-Day Historical Trend for Region: ${latRange[0]}°N - ${latRange[1]}°N, ${lngRange[0]}°E - ${lngRange[1]}°E`
                       : '14-Day Historical Trend'
@@ -213,7 +215,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
 
             {/* Content */}
             <div style={{ flex: 1, padding: '32px', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {activeTab === 'magnitude' ? (
+              {effectiveTab === 'magnitude' ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
                     <defs>
