@@ -845,8 +845,17 @@ const OceanGlobeView: React.FC = () => {
             </button>
           </div>
           <div style={{ fontSize: '13px', fontWeight: '300', lineHeight: '1.8', color: 'rgba(255,255,255,0.65)' }}>
-            <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {clickedCell.minLat}°N – {clickedCell.maxLat}°N</div>
-            <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {clickedCell.minLng}°E – {clickedCell.maxLng}°E</div>
+            {searchedLocation ? (
+              <>
+                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {(Math.round(searchedLocation.lat / 0.25) * 0.25).toFixed(2)}°N</div>
+                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {(Math.round(searchedLocation.lon / 0.25) * 0.25).toFixed(2)}°E</div>
+              </>
+            ) : (
+              <>
+                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {clickedCell.minLat}°N – {clickedCell.maxLat}°N</div>
+                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {clickedCell.minLng}°E – {clickedCell.maxLng}°E</div>
+              </>
+            )}
 
             {!regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? (
               <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(255,50,50,0.1)', borderRadius: '12px', border: '1px solid rgba(255,50,50,0.2)' }}>
