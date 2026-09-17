@@ -7,9 +7,10 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { motion } from 'framer-motion';
 const DepthModal = lazy(() => import('./DepthModal'));
 const ValidationModal = lazy(() => import('./ValidationModal'));
+const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
-import { LayoutDashboard, Target } from 'lucide-react';
+import { LayoutDashboard, Target, ThermometerSun, Droplets, Waves, Navigation, Wind } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
@@ -63,6 +64,7 @@ const OceanGlobeView: React.FC = () => {
   const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lon: number } | null>(null);
   const searchedLocationRef = useRef<{ lat: number; lon: number } | null>(null);
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+  const [activeObservation, setActiveObservation] = useState<'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds' | null>(null);
 
   useEffect(() => {
     searchedLocationRef.current = searchedLocation;
@@ -806,45 +808,6 @@ const OceanGlobeView: React.FC = () => {
       {/* Grid cell popup — only shown when in focus and a cell is clicked */}
       {clickedCell && focusedRegion && (
         <>
-          <div className={`left-toolbar ${isClosing ? 'left-toolbar-closing' : ''}`}>
-            <button
-              onClick={() => setIsValidationModalOpen(false)}
-              title="Main Dashboard"
-              style={{
-                background: !isValidationModalOpen ? 'rgba(255,255,255,0.15)' : 'transparent',
-                border: 'none',
-                color: !isValidationModalOpen ? '#8bb6d6' : 'rgba(255,255,255,0.5)',
-                padding: '10px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <LayoutDashboard size={20} />
-            </button>
-            <button
-              onClick={() => setIsValidationModalOpen(true)}
-              title="Model Validation & ARGO Metrics"
-              style={{
-                background: isValidationModalOpen ? 'rgba(255,255,255,0.15)' : 'transparent',
-                border: 'none',
-                color: isValidationModalOpen ? '#ff7882' : 'rgba(255,255,255,0.5)',
-                padding: '10px',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Target size={20} />
-            </button>
-          </div>
-
           <div
             className={`sidebar-panel ${isClosing ? 'sidebar-panel-closing' : ''}`}
           onMouseEnter={() => setHoveredCell(null)}
@@ -913,12 +876,52 @@ const OceanGlobeView: React.FC = () => {
               <>
                 <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SST:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
-                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSS:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
-                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSH:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
-                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Currents:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')}</div>
-                    <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Winds:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                    <button
+                      onClick={() => setActiveObservation('SST')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,120,130,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,120,130,0.3)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ThermometerSun size={16} color="#ff7882" /> SST</div>
+                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
+                    </button>
+                    <button
+                      onClick={() => setActiveObservation('SSS')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(53,183,121,0.15)'; e.currentTarget.style.borderColor = 'rgba(53,183,121,0.3)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Droplets size={16} color="#35b779" /> SSS</div>
+                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
+                    </button>
+                    <button
+                      onClick={() => setActiveObservation('SSH')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,182,214,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,182,214,0.3)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Waves size={16} color="#8bb6d6" /> SSH</div>
+                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
+                    </button>
+                    <button
+                      onClick={() => setActiveObservation('Currents')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(253,231,37,0.15)'; e.currentTarget.style.borderColor = 'rgba(253,231,37,0.3)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Navigation size={16} color="#fde725" /> Currents</div>
+                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')} m/s</div>
+                    </button>
+                    <button
+                      onClick={() => setActiveObservation('Winds')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(212,165,165,0.15)'; e.currentTarget.style.borderColor = 'rgba(212,165,165,0.3)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Wind size={16} color="#d4a5a5" /> Winds</div>
+                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
+                    </button>
                   </div>
                 </div>
 
@@ -947,6 +950,36 @@ const OceanGlobeView: React.FC = () => {
                   }}
                 >
                   View 3D Subsurface Profile
+                </button>
+
+                <button
+                  onClick={() => setIsValidationModalOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    color: '#ff7882',
+                    border: '1px solid rgba(255, 120, 130, 0.3)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    marginTop: '4px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 120, 130, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <Target size={16} />
+                    View Validation Framework
+                  </div>
                 </button>
               </>
             )}
@@ -982,6 +1015,14 @@ const OceanGlobeView: React.FC = () => {
         <ValidationModal
           isOpen={isValidationModalOpen}
           onClose={() => setIsValidationModalOpen(false)}
+          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] : null}
+          latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
+          lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
+        />
+        <ObservationModal
+          isOpen={activeObservation !== null}
+          onClose={() => setActiveObservation(null)}
+          metricType={activeObservation}
           data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] : null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
