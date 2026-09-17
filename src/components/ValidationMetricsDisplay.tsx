@@ -43,6 +43,7 @@ const ValidationMetricsDisplay: React.FC<Props> = ({ data }) => {
               data={chartData}
               layout="vertical"
               margin={{ top: 5, right: 10, bottom: 5, left: -20 }}
+              style={{ outline: 'none' }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={true} vertical={false} />
               

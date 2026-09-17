@@ -297,3 +297,10 @@ body,
 .globe-drop-pin .pin-stem {
   display: none;
 }
+
+/* Remove default focus outline from Recharts */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-responsive-container {
+  outline: none !important;
+}

@@ -183,7 +183,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
             {/* Content */}
             <div style={{ flex: 1, padding: '32px', minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={config.color} stopOpacity={0.4}/>
