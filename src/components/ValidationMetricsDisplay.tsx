@@ -73,7 +73,7 @@ const ValidationMetricsDisplay: React.FC<Props> = ({ data }) => {
               <Tooltip 
                 contentStyle={{ background: 'rgba(10,25,45,0.95)', border: '1px solid rgba(139,182,214,0.3)', borderRadius: '8px', fontSize: '12px' }}
                 itemStyle={{ color: '#fff' }}
-                formatter={(value: number, name: string) => [`${value.toFixed(2)} °C`, name === 'predicted' ? 'AI Prediction' : 'ARGO Float']}
+                formatter={(value: any, name: any) => [`${Number(value).toFixed(2)} °C`, name === 'predicted' ? 'AI Prediction' : 'ARGO Float']}
                 labelFormatter={(label) => `Depth: ${label}m`}
               />
               
