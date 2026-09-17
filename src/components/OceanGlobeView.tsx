@@ -6,10 +6,10 @@ import { Suspense, lazy } from 'react';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { motion } from 'framer-motion';
 const DepthModal = lazy(() => import('./DepthModal'));
+const ValidationModal = lazy(() => import('./ValidationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
 import { LayoutDashboard, Target } from 'lucide-react';
-import ValidationMetricsDisplay from './ValidationMetricsDisplay';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
@@ -62,7 +62,7 @@ const OceanGlobeView: React.FC = () => {
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchedLocation, setSearchedLocation] = useState<{ lat: number; lon: number } | null>(null);
   const searchedLocationRef = useRef<{ lat: number; lon: number } | null>(null);
-  const [activeView, setActiveView] = useState<'dashboard' | 'metrics'>('dashboard');
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 
   useEffect(() => {
     searchedLocationRef.current = searchedLocation;
@@ -808,12 +808,12 @@ const OceanGlobeView: React.FC = () => {
         <>
           <div className={`left-toolbar ${isClosing ? 'left-toolbar-closing' : ''}`}>
             <button
-              onClick={() => setActiveView('dashboard')}
+              onClick={() => setIsValidationModalOpen(false)}
               title="Main Dashboard"
               style={{
-                background: activeView === 'dashboard' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                background: !isValidationModalOpen ? 'rgba(255,255,255,0.15)' : 'transparent',
                 border: 'none',
-                color: activeView === 'dashboard' ? '#8bb6d6' : 'rgba(255,255,255,0.5)',
+                color: !isValidationModalOpen ? '#8bb6d6' : 'rgba(255,255,255,0.5)',
                 padding: '10px',
                 borderRadius: '12px',
                 cursor: 'pointer',
@@ -826,12 +826,12 @@ const OceanGlobeView: React.FC = () => {
               <LayoutDashboard size={20} />
             </button>
             <button
-              onClick={() => setActiveView('metrics')}
+              onClick={() => setIsValidationModalOpen(true)}
               title="Model Validation & ARGO Metrics"
               style={{
-                background: activeView === 'metrics' ? 'rgba(255,255,255,0.15)' : 'transparent',
+                background: isValidationModalOpen ? 'rgba(255,255,255,0.15)' : 'transparent',
                 border: 'none',
-                color: activeView === 'metrics' ? '#ff7882' : 'rgba(255,255,255,0.5)',
+                color: isValidationModalOpen ? '#ff7882' : 'rgba(255,255,255,0.5)',
                 padding: '10px',
                 borderRadius: '12px',
                 cursor: 'pointer',
@@ -861,7 +861,7 @@ const OceanGlobeView: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
               {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] 
-                ? (activeView === 'metrics' ? 'Validation Framework' : 'Ocean State Profile') 
+                ? 'Ocean State Profile'
                 : 'Landmass Detected'}
             </h3>
             <button
@@ -910,51 +910,45 @@ const OceanGlobeView: React.FC = () => {
                 </p>
               </div>
             ) : (
-              activeView === 'dashboard' ? (
-                <>
-                  <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
-                      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SST:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
-                      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSS:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
-                      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSH:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
-                      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Currents:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')}</div>
-                      <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Winds:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
-                    </div>
+              <>
+                <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SST:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSS:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>SSH:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
+                    <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Currents:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')}</div>
+                    <div style={{ gridColumn: 'span 2' }}><span style={{ color: 'rgba(255,255,255,0.4)' }}>Winds:</span> {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
                   </div>
-
-                  <button
-                    onClick={() => setIsModalOpen(true)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      background: 'linear-gradient(135deg, #175d96, #0b355c)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
-                      transition: 'all 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
-                    }}
-                  >
-                    View 3D Subsurface Profile
-                  </button>
-                </>
-              ) : (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                  <ValidationMetricsDisplay data={regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]} />
                 </div>
-              )
+
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #175d96, #0b355c)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
+                  }}
+                >
+                  View 3D Subsurface Profile
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -984,6 +978,13 @@ const OceanGlobeView: React.FC = () => {
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
           searchedLocation={searchedLocation}
+        />
+        <ValidationModal
+          isOpen={isValidationModalOpen}
+          onClose={() => setIsValidationModalOpen(false)}
+          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] : null}
+          latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
+          lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
         />
       </Suspense>
 
