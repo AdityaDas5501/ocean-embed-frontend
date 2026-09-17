@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { OceanData } from '../utils/regionalMockData';
@@ -14,6 +14,14 @@ interface ObservationModalProps {
 
 const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, metricType, data, latRange, lngRange }) => {
   const [shouldRender, setShouldRender] = useState(false);
+  const prevData = useRef(data);
+  const prevMetricType = useRef(metricType);
+
+  if (data) prevData.current = data;
+  if (metricType) prevMetricType.current = metricType;
+
+  const currentData = data || prevData.current;
+  const currentMetricType = metricType || prevMetricType.current;
 
   useEffect(() => {
     if (isOpen) setShouldRender(true);
@@ -25,25 +33,25 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
 
   // Generate 14-day mock historical data
   const chartData = useMemo(() => {
-    if (!data || !metricType) return [];
+    if (!currentData || !currentMetricType) return [];
     
     let baseValue = 0;
     let variance = 0;
     
-    if (metricType === 'SST') {
-      baseValue = data.surface_inputs.SST_celsius;
+    if (currentMetricType === 'SST') {
+      baseValue = currentData.surface_inputs.SST_celsius;
       variance = 1.5;
-    } else if (metricType === 'SSS') {
-      baseValue = data.surface_inputs.SSS_psu;
+    } else if (currentMetricType === 'SSS') {
+      baseValue = currentData.surface_inputs.SSS_psu;
       variance = 0.5;
-    } else if (metricType === 'SSH') {
-      baseValue = data.surface_inputs.SSH_meters;
+    } else if (currentMetricType === 'SSH') {
+      baseValue = currentData.surface_inputs.SSH_meters;
       variance = 0.2;
-    } else if (metricType === 'Currents') {
-      baseValue = Math.sqrt(Math.pow(data.surface_inputs.currents_uv[0], 2) + Math.pow(data.surface_inputs.currents_uv[1], 2));
+    } else if (currentMetricType === 'Currents') {
+      baseValue = Math.sqrt(Math.pow(currentData.surface_inputs.currents_uv[0], 2) + Math.pow(currentData.surface_inputs.currents_uv[1], 2));
       variance = 0.3;
-    } else if (metricType === 'Winds') {
-      baseValue = Math.sqrt(Math.pow(data.surface_inputs.winds_uv[0], 2) + Math.pow(data.surface_inputs.winds_uv[1], 2));
+    } else if (currentMetricType === 'Winds') {
+      baseValue = Math.sqrt(Math.pow(currentData.surface_inputs.winds_uv[0], 2) + Math.pow(currentData.surface_inputs.winds_uv[1], 2));
       variance = 2.0;
     }
 
@@ -66,9 +74,9 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
       });
     }
     return history;
-  }, [data, metricType]);
+  }, [currentData, currentMetricType]);
 
-  if (!shouldRender || !data || !metricType) return null;
+  if (!shouldRender || !currentData || !currentMetricType) return null;
 
   const config = {
     'SST': { title: 'Sea Surface Temperature (SST)', color: '#ff7882', unit: '°C' },
@@ -76,7 +84,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     'SSH': { title: 'Sea Surface Height (SSH)', color: '#8bb6d6', unit: 'm' },
     'Currents': { title: 'Surface Currents Magnitude', color: '#fde725', unit: ' m/s' },
     'Winds': { title: 'Surface Winds Magnitude', color: '#d4a5a5', unit: ' m/s' },
-  }[metricType];
+  }[currentMetricType];
 
   return (
     <AnimatePresence>
@@ -87,6 +95,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           onAnimationComplete={handleAnimationComplete}
+          onClick={onClose}
           style={{
             position: 'absolute',
             top: 0,
@@ -106,6 +115,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: 'relative',
               width: '90%',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OceanData } from '../utils/regionalMockData';
 import ValidationMetricsDisplay from './ValidationMetricsDisplay';
@@ -13,6 +13,10 @@ interface ValidationModalProps {
 
 const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, data, latRange, lngRange }) => {
   const [shouldRender, setShouldRender] = useState(false);
+  const prevData = useRef(data);
+
+  if (data) prevData.current = data;
+  const currentData = data || prevData.current;
 
   useEffect(() => {
     if (isOpen) setShouldRender(true);
@@ -22,7 +26,7 @@ const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, data
     if (!isOpen) setShouldRender(false);
   };
 
-  if (!shouldRender || !data) return null;
+  if (!shouldRender || !currentData) return null;
 
   return (
     <AnimatePresence>
@@ -33,6 +37,7 @@ const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, data
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
           onAnimationComplete={handleAnimationComplete}
+          onClick={onClose}
           style={{
             position: 'absolute',
             top: 0,
@@ -52,6 +57,7 @@ const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, data
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300, delay: 0.1 }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               position: 'relative',
               width: '90%',
@@ -118,7 +124,7 @@ const ValidationModal: React.FC<ValidationModalProps> = ({ isOpen, onClose, data
 
             {/* Content */}
             <div style={{ flex: 1, padding: '32px', minHeight: 0 }}>
-              <ValidationMetricsDisplay data={data} />
+              <ValidationMetricsDisplay data={currentData} />
             </div>
           </motion.div>
         </motion.div>
