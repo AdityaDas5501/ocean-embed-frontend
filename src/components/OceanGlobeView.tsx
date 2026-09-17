@@ -10,7 +10,7 @@ const ValidationModal = lazy(() => import('./ValidationModal'));
 const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import { regionalMockData } from '../utils/regionalMockData';
-import { LayoutDashboard, Target, ThermometerSun, Droplets, Waves, Navigation, Wind } from 'lucide-react';
+import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
