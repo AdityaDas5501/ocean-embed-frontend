@@ -11,6 +11,7 @@ export interface OceanData {
   ai_predictions: {
     depths_m: number[];
     temps_celsius: number[];
+    argo_temps_celsius: number[];
   };
   validation_metrics: {
     RMSE: number;
@@ -35,6 +36,7 @@ for (let lat = 5; lat <= 20; lat += 5) {
     const isNorth = lat >= 15;
     const tempOffset = isNorth ? -0.5 : 0.5; // Cooler in north
     const temps = addVariation(baseTemps_celsius.map(t => t + tempOffset), 0.4);
+    const argoTemps = addVariation(temps, 0.4); // simulate slight in-situ deviation
     
     regionalMockData[`${lat},${lon}`] = {
       latitude_range: `${lat}°N - ${lat + 5}°N`,
@@ -48,7 +50,8 @@ for (let lat = 5; lat <= 20; lat += 5) {
       },
       ai_predictions: {
         depths_m,
-        temps_celsius: temps
+        temps_celsius: temps,
+        argo_temps_celsius: argoTemps
       },
       validation_metrics: {
         RMSE: Number((0.3 + Math.random() * 0.2).toFixed(2)),
@@ -67,6 +70,7 @@ for (let lat = 10; lat <= 25; lat += 5) {
     const isNorth = lat >= 20;
     const tempOffset = isNorth ? -1.0 : 0.2; // Cooler in north
     const temps = addVariation(baseTemps_celsius.map(t => t + tempOffset), 0.4);
+    const argoTemps = addVariation(temps, 0.4);
     
     regionalMockData[`${lat},${lon}`] = {
       latitude_range: `${lat}°N - ${lat + 5}°N`,
@@ -80,7 +84,8 @@ for (let lat = 10; lat <= 25; lat += 5) {
       },
       ai_predictions: {
         depths_m,
-        temps_celsius: temps
+        temps_celsius: temps,
+        argo_temps_celsius: argoTemps
       },
       validation_metrics: {
         RMSE: Number((0.35 + Math.random() * 0.2).toFixed(2)),
