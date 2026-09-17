@@ -619,6 +619,7 @@ const OceanGlobeView: React.FC = () => {
                     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
                     setClickedCell({ minLat, maxLat, minLng, maxLng });
                     setIsClosing(false);
+                    setSearchedLocation(null);
                   }
                 }
               }
