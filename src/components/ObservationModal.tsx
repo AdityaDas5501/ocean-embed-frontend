@@ -15,6 +15,7 @@ interface ObservationModalProps {
 const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, metricType, data, latRange, lngRange }) => {
   const [shouldRender, setShouldRender] = useState(false);
   const [activeTab, setActiveTab] = useState<'magnitude' | 'direction'>('magnitude');
+  const [timeIndex, setTimeIndex] = useState(14); // 0 to 14 (14 = today)
   const prevData = useRef(data);
   const prevMetricType = useRef(metricType);
 
@@ -260,85 +261,140 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(20, 1fr)',
-                    gridTemplateRows: 'repeat(20, 1fr)',
-                    width: '100%',
-                    height: '100%',
-                    maxHeight: '400px',
-                    maxWidth: '400px',
-                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                    borderLeft: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(0,0,0,0.3)',
-                    position: 'relative',
-                  }}>
-                    {/* Y-Axis (Latitude) */}
-                    {latRange && (
-                      <div style={{ position: 'absolute', left: '-40px', top: '-6px', bottom: '-6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: 500, pointerEvents: 'none' }}>
-                        <span>{latRange[1]}°N</span>
-                        <span>{latRange[0]}°N</span>
-                      </div>
-                    )}
-                    {/* X-Axis (Longitude) */}
-                    {lngRange && (
-                      <div style={{ position: 'absolute', bottom: '-24px', left: '-10px', right: '-10px', display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: 500, pointerEvents: 'none' }}>
-                        <span>{lngRange[0]}°E</span>
-                        <span>{lngRange[1]}°E</span>
-                      </div>
-                    )}
+                <div style={{ flex: 1, position: 'relative', display: 'flex', minHeight: 0, paddingRight: '100px', paddingLeft: '40px' }}>
+                  
+                  {/* Grid Container */}
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, minWidth: 0 }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(20, 1fr)',
+                      gridTemplateRows: 'repeat(20, 1fr)',
+                      width: '100%',
+                      height: '100%',
+                      maxWidth: '350px',
+                      maxHeight: '350px',
+                      aspectRatio: '1 / 1',
+                      borderTop: '1px solid rgba(255,255,255,0.1)',
+                      borderLeft: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(0,0,0,0.3)',
+                      position: 'relative',
+                    }}>
+                      {/* Y-Axis (Latitude) */}
+                      {latRange && (
+                        <div style={{ position: 'absolute', left: '-40px', top: '-6px', bottom: '-6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: 500, pointerEvents: 'none' }}>
+                          <span>{latRange[1]}°N</span>
+                          <span>{latRange[0]}°N</span>
+                        </div>
+                      )}
+                      {/* X-Axis (Longitude) */}
+                      {lngRange && (
+                        <div style={{ position: 'absolute', bottom: '-24px', left: '-10px', right: '-10px', display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: 500, pointerEvents: 'none' }}>
+                          <span>{lngRange[0]}°E</span>
+                          <span>{lngRange[1]}°E</span>
+                        </div>
+                      )}
 
-                    {(() => {
-                      const gridData = currentMetricType === 'Currents' 
-                        ? currentData.surface_inputs.currents_vector_grid 
-                        : currentData.surface_inputs.winds_vector_grid;
-                      
-                      if (!gridData) return null;
+                      {(() => {
+                        const gridData = currentMetricType === 'Currents' 
+                          ? currentData.surface_inputs.currents_vector_grid 
+                          : currentData.surface_inputs.winds_vector_grid;
+                        
+                        if (!gridData) return null;
 
-                      let maxMag = 0;
-                      gridData.forEach(row => row.forEach(([u, v]) => {
-                        const mag = Math.sqrt(u*u + v*v);
-                        if (mag > maxMag) maxMag = mag;
-                      }));
-
-                      // Invert rows so that North is up
-                      return [...gridData].reverse().map((row, i) => 
-                        row.map(([u, v], j) => {
+                        let maxMag = 0;
+                        gridData.forEach(row => row.forEach(([u, v]) => {
                           const mag = Math.sqrt(u*u + v*v);
-                          const angle = Math.atan2(u, v) * (180 / Math.PI);
-                          const opacity = maxMag > 0 ? 0.2 + 0.8 * (mag / maxMag) : 0.2;
-                          
-                          return (
-                            <div key={`${i}-${j}`} style={{
-                              borderRight: '1px solid rgba(255,255,255,0.03)',
-                              borderBottom: '1px solid rgba(255,255,255,0.03)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}>
-                              <svg 
-                                width="70%" 
-                                height="70%" 
-                                viewBox="0 0 24 24" 
-                                fill="none" 
-                                stroke={config.color} 
-                                strokeWidth="2" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                style={{
-                                  opacity,
-                                  transform: `rotate(${angle}deg)`,
-                                }}
-                              >
-                                <line x1="12" y1="19" x2="12" y2="5"></line>
-                                <polyline points="5 12 12 5 19 12"></polyline>
-                              </svg>
-                            </div>
-                          );
-                        })
-                      );
-                    })()}
+                          if (mag > maxMag) maxMag = mag;
+                        }));
+
+                        // Time simulation parameters
+                        const phaseOffset = ((14 - timeIndex) / 14) * Math.PI * 2;
+
+                        // Invert rows so that North is up
+                        return [...gridData].reverse().map((row, i) => 
+                          row.map(([u, v], j) => {
+                            const baseMag = Math.sqrt(u*u + v*v);
+                            const baseAngle = Math.atan2(u, v);
+                            
+                            // Procedural time perturbation (simulates ocean/wind shifts over 14 days)
+                            const perturbedAngle = baseAngle + Math.sin(phaseOffset + i * 0.2 + j * 0.2) * 0.5; 
+                            const magMultiplier = 1 + Math.cos(phaseOffset * 2 + i * 0.1) * 0.3;
+                            
+                            const pU = baseMag * magMultiplier * Math.sin(perturbedAngle);
+                            const pV = baseMag * magMultiplier * Math.cos(perturbedAngle);
+                            
+                            const finalMag = Math.sqrt(pU*pU + pV*pV);
+                            const angle = Math.atan2(pU, pV) * (180 / Math.PI);
+
+                            const opacity = maxMag > 0 ? 0.2 + 0.8 * (finalMag / (maxMag * 1.3)) : 0.2;
+                            
+                            return (
+                              <div key={`${i}-${j}`} style={{
+                                borderRight: '1px solid rgba(255,255,255,0.03)',
+                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <svg 
+                                  width="70%" 
+                                  height="70%" 
+                                  viewBox="0 0 24 24" 
+                                  fill="none" 
+                                  stroke={config.color} 
+                                  strokeWidth="2" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round"
+                                  style={{
+                                    opacity: Math.min(opacity, 1),
+                                    transform: `rotate(${angle}deg)`,
+                                    transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease'
+                                  }}
+                                >
+                                  <line x1="12" y1="19" x2="12" y2="5"></line>
+                                  <polyline points="5 12 12 5 19 12"></polyline>
+                                </svg>
+                              </div>
+                            );
+                          })
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Vertical Slider Control */}
+                  <div style={{ position: 'absolute', right: '0', top: '50%', transform: 'translateY(-50%)', height: '100%', maxHeight: '350px', width: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', background: 'rgba(0,0,0,0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)', zIndex: 10 }}>
+                    <div style={{ color: config.color, fontSize: '15px', fontWeight: 600, marginBottom: '12px', whiteSpace: 'nowrap' }}>
+                      {chartData[timeIndex]?.date || 'Today'}
+                    </div>
+                    
+                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '8px' }}>Today</div>
+                    
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', minHeight: 0 }}>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="14" 
+                        value={timeIndex}
+                        onChange={(e) => setTimeIndex(Number(e.target.value))}
+                        style={{
+                          writingMode: 'vertical-lr',
+                          WebkitAppearance: 'slider-vertical',
+                          cursor: 'pointer',
+                          accentColor: config.color,
+                          width: '4px',
+                          height: '100%',
+                          background: 'rgba(255,255,255,0.1)',
+                          borderRadius: '2px',
+                          outline: 'none',
+                          margin: 0
+                        }}
+                      />
+                    </div>
+                    
+                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: 1.4 }}>
+                      14 Days<br/>Ago
+                    </div>
                   </div>
                 </div>
               )}
