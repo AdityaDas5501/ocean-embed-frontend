@@ -368,7 +368,9 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                       {chartData[timeIndex]?.date || 'Today'}
                     </div>
                     
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '8px' }}>Today</div>
+                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '8px', textAlign: 'center', lineHeight: 1.4 }}>
+                      14 Days<br/>Ago
+                    </div>
                     
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', minHeight: 0 }}>
                       <input 
@@ -393,7 +395,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                     </div>
                     
                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: 1.4 }}>
-                      14 Days<br/>Ago
+                      Today
                     </div>
                   </div>
                 </div>
