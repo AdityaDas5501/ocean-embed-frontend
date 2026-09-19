@@ -25,6 +25,139 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
   const currentData = data || prevData.current;
   const currentMetricType = metricType || prevMetricType.current;
 
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !currentData || !currentMetricType) return;
+    
+    const effectiveTab = (currentMetricType === 'Currents' || currentMetricType === 'Winds') ? activeTab : 'magnitude';
+    if (effectiveTab !== 'direction') return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Get the grid data
+    const gridData = currentMetricType === 'Currents' 
+      ? currentData.surface_inputs.currents_vector_grid 
+      : currentData.surface_inputs.winds_vector_grid;
+    
+    if (!gridData) return;
+
+    // We invert the rows so North is up, just like the previous grid
+    const dataMatrix = [...gridData].reverse();
+    const rows = dataMatrix.length;
+    const cols = dataMatrix[0].length;
+    
+    // Set internal resolution of the canvas
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width || 350;
+    canvas.height = rect.height || 350;
+
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const cellW = width / cols;
+    const cellH = height / rows;
+
+    type Particle = { x: number; y: number; prevX: number; prevY: number; age: number; lifespan: number };
+    const numParticles = 200;
+    const particles: Particle[] = Array.from({ length: numParticles }, () => {
+      const x = Math.random() * width;
+      const y = Math.random() * height;
+      return {
+        x, y,
+        prevX: x, prevY: y,
+        age: 0,
+        lifespan: Math.floor(Math.random() * 100) + 50
+      };
+    });
+
+    let animationFrameId: number;
+    const phaseOffset = ((14 - timeIndex) / 14) * Math.PI * 2;
+    const speedMultiplier = currentMetricType === 'Winds' ? 1.2 : 3.0;
+    const particleColor = currentMetricType === 'Currents' ? '#fde725' : '#d4a5a5';
+
+    // Fill initial background solidly once
+    ctx.globalAlpha = 1.0;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, width, height);
+
+    const render = () => {
+      // Fading trails effect
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.15)'; // trail fade speed
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = particleColor;
+      ctx.globalAlpha = 0.8;
+      ctx.lineCap = 'round';
+
+      particles.forEach(p => {
+        const exactJ = p.x / cellW - 0.5;
+        const exactI = p.y / cellH - 0.5;
+        
+        const j1 = Math.max(0, Math.floor(exactJ));
+        const j2 = Math.min(cols - 1, j1 + 1);
+        const i1 = Math.max(0, Math.floor(exactI));
+        const i2 = Math.min(rows - 1, i1 + 1);
+        
+        const fJ = exactJ - Math.floor(exactJ);
+        const fI = exactI - Math.floor(exactI);
+
+        if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height) {
+          const [u11, v11] = dataMatrix[i1][j1];
+          const [u12, v12] = dataMatrix[i1][j2];
+          const [u21, v21] = dataMatrix[i2][j1];
+          const [u22, v22] = dataMatrix[i2][j2];
+          
+          const u = u11 * (1-fJ)*(1-fI) + u12 * fJ*(1-fI) + u21 * (1-fJ)*fI + u22 * fJ*fI;
+          const v = v11 * (1-fJ)*(1-fI) + v12 * fJ*(1-fI) + v21 * (1-fJ)*fI + v22 * fJ*fI;
+          
+          const baseMag = Math.sqrt(u*u + v*v);
+          const baseAngle = Math.atan2(u, v);
+          
+          const perturbedAngle = baseAngle + Math.sin(phaseOffset + exactI * 0.2 + exactJ * 0.2) * 0.5; 
+          const magMultiplier = 1 + Math.cos(phaseOffset * 2 + exactI * 0.1) * 0.3;
+          
+          const pU = baseMag * magMultiplier * Math.sin(perturbedAngle);
+          const pV = baseMag * magMultiplier * Math.cos(perturbedAngle);
+
+          p.prevX = p.x;
+          p.prevY = p.y;
+          p.x += pU * speedMultiplier;
+          p.y -= pV * speedMultiplier; // Subtract because canvas Y is down
+
+          ctx.beginPath();
+          ctx.moveTo(p.prevX, p.prevY);
+          ctx.lineTo(p.x, p.y);
+          ctx.lineWidth = 2.0;
+          ctx.stroke();
+        }
+
+        p.age++;
+
+        if (p.age > p.lifespan || p.x < 0 || p.x > width || p.y < 0 || p.y > height) {
+          p.x = Math.random() * width;
+          p.y = Math.random() * height;
+          p.prevX = p.x;
+          p.prevY = p.y;
+          p.age = 0;
+          p.lifespan = Math.floor(Math.random() * 100) + 50;
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [currentData, currentMetricType, activeTab, isOpen, timeIndex]);
+
   useEffect(() => {
     if (isOpen) setShouldRender(true);
   }, [isOpen]);
@@ -263,21 +396,19 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
               ) : (
                 <div style={{ flex: 1, position: 'relative', display: 'flex', minHeight: 0, paddingRight: '100px', paddingLeft: '40px' }}>
                   
-                  {/* Grid Container */}
+                  {/* Canvas Container */}
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, minWidth: 0 }}>
                     <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(20, 1fr)',
-                      gridTemplateRows: 'repeat(20, 1fr)',
                       width: '100%',
                       height: '100%',
                       maxWidth: '350px',
                       maxHeight: '350px',
                       aspectRatio: '1 / 1',
-                      borderTop: '1px solid rgba(255,255,255,0.1)',
-                      borderLeft: '1px solid rgba(255,255,255,0.1)',
-                      background: 'rgba(0,0,0,0.3)',
+                      background: '#0f172a',
                       position: 'relative',
+                      borderRadius: '8px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.1)'
                     }}>
                       {/* Y-Axis (Latitude) */}
                       {latRange && (
@@ -293,72 +424,16 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                           <span>{lngRange[1]}°E</span>
                         </div>
                       )}
-
-                      {(() => {
-                        const gridData = currentMetricType === 'Currents' 
-                          ? currentData.surface_inputs.currents_vector_grid 
-                          : currentData.surface_inputs.winds_vector_grid;
-                        
-                        if (!gridData) return null;
-
-                        let maxMag = 0;
-                        gridData.forEach(row => row.forEach(([u, v]) => {
-                          const mag = Math.sqrt(u*u + v*v);
-                          if (mag > maxMag) maxMag = mag;
-                        }));
-
-                        // Time simulation parameters
-                        const phaseOffset = ((14 - timeIndex) / 14) * Math.PI * 2;
-
-                        // Invert rows so that North is up
-                        return [...gridData].reverse().map((row, i) => 
-                          row.map(([u, v], j) => {
-                            const baseMag = Math.sqrt(u*u + v*v);
-                            const baseAngle = Math.atan2(u, v);
-                            
-                            // Procedural time perturbation (simulates ocean/wind shifts over 14 days)
-                            const perturbedAngle = baseAngle + Math.sin(phaseOffset + i * 0.2 + j * 0.2) * 0.5; 
-                            const magMultiplier = 1 + Math.cos(phaseOffset * 2 + i * 0.1) * 0.3;
-                            
-                            const pU = baseMag * magMultiplier * Math.sin(perturbedAngle);
-                            const pV = baseMag * magMultiplier * Math.cos(perturbedAngle);
-                            
-                            const finalMag = Math.sqrt(pU*pU + pV*pV);
-                            const angle = Math.atan2(pU, pV) * (180 / Math.PI);
-
-                            const opacity = maxMag > 0 ? 0.2 + 0.8 * (finalMag / (maxMag * 1.3)) : 0.2;
-                            
-                            return (
-                              <div key={`${i}-${j}`} style={{
-                                borderRight: '1px solid rgba(255,255,255,0.03)',
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}>
-                                <svg 
-                                  width="70%" 
-                                  height="70%" 
-                                  viewBox="0 0 24 24" 
-                                  fill="none" 
-                                  stroke={config.color} 
-                                  strokeWidth="2" 
-                                  strokeLinecap="round" 
-                                  strokeLinejoin="round"
-                                  style={{
-                                    opacity: Math.min(opacity, 1),
-                                    transform: `rotate(${angle}deg)`,
-                                    transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease'
-                                  }}
-                                >
-                                  <line x1="12" y1="19" x2="12" y2="5"></line>
-                                  <polyline points="5 12 12 5 19 12"></polyline>
-                                </svg>
-                              </div>
-                            );
-                          })
-                        );
-                      })()}
+                      
+                      <canvas
+                        ref={canvasRef}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          display: 'block',
+                          borderRadius: '8px'
+                        }}
+                      />
                     </div>
                   </div>
 
