@@ -26,6 +26,11 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
   const currentMetricType = metricType || prevMetricType.current;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const targetPhaseOffset = useRef(((14 - timeIndex) / 14) * Math.PI * 2);
+  
+  useEffect(() => {
+    targetPhaseOffset.current = ((14 - timeIndex) / 14) * Math.PI * 2;
+  }, [timeIndex]);
 
   useEffect(() => {
     if (!isOpen || !currentData || !currentMetricType) return;
@@ -75,7 +80,8 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     });
 
     let animationFrameId: number;
-    const phaseOffset = ((14 - timeIndex) / 14) * Math.PI * 2;
+    let currentPhaseOffset = targetPhaseOffset.current;
+    
     const speedMultiplier = currentMetricType === 'Winds' ? 1.2 : 3.0;
     const particleColor = currentMetricType === 'Currents' ? '#fde725' : '#d4a5a5';
 
@@ -85,6 +91,8 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     ctx.fillRect(0, 0, width, height);
 
     const render = () => {
+      currentPhaseOffset += (targetPhaseOffset.current - currentPhaseOffset) * 0.1;
+      
       // Fading trails effect
       ctx.globalAlpha = 1.0;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.15)'; // trail fade speed
@@ -118,8 +126,8 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
           const baseMag = Math.sqrt(u*u + v*v);
           const baseAngle = Math.atan2(u, v);
           
-          const perturbedAngle = baseAngle + Math.sin(phaseOffset + exactI * 0.2 + exactJ * 0.2) * 0.5; 
-          const magMultiplier = 1 + Math.cos(phaseOffset * 2 + exactI * 0.1) * 0.3;
+          const perturbedAngle = baseAngle + Math.sin(currentPhaseOffset + exactI * 0.2 + exactJ * 0.2) * 0.5; 
+          const magMultiplier = 1 + Math.cos(currentPhaseOffset * 2 + exactI * 0.1) * 0.3;
           
           const pU = baseMag * magMultiplier * Math.sin(perturbedAngle);
           const pV = baseMag * magMultiplier * Math.cos(perturbedAngle);
@@ -156,7 +164,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [currentData, currentMetricType, activeTab, isOpen, timeIndex]);
+  }, [currentData, currentMetricType, activeTab, isOpen]);
 
   useEffect(() => {
     if (isOpen) setShouldRender(true);
