@@ -238,7 +238,7 @@ const OceanGlobeView: React.FC = () => {
 
   const handleFocusArabianSea = () => {
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat: 16.5, lng: 63.5, altitude: 0.45 }, 2000);
+      globeRef.current.pointOfView({ lat: 14.5, lng: 63.5, altitude: 0.45 }, 2000);
       setFocusedRegion('as');
       focusedRegionRef.current = 'as';
       isFlightAnimatingRef.current = true;
