@@ -726,16 +726,24 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
   } | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(isOpen);
 
-  useEffect(() => {
-    if (!isOpen) {
+  // Sync state with isOpen prop to prevent 1-frame flash
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setIsProfileLoading(true);
+    } else {
       setSelectedLayer(null);
       setSurfaceData(null);
       setIsGenerating(false);
       setIsProfileLoading(false);
-    } else {
-      setIsProfileLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
       const timer = setTimeout(() => {
         setIsProfileLoading(false);
       }, 800);
@@ -743,14 +751,13 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     }
   }, [isOpen]);
 
+  const latStart = latRange?.[0];
+  const lngStart = lngRange?.[0];
+
   useEffect(() => {
     if (selectedLayer === null || !predictions) {
-      setSurfaceData(null);
-      setIsGenerating(false);
       return;
     }
-
-    setIsGenerating(true);
 
     const layerIndex = predictions.depths_m.indexOf(selectedLayer);
     if (layerIndex === -1) {
@@ -759,11 +766,11 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     }
 
     const baseTemp = predictions.temps_celsius[layerIndex];
-    const lat = latRange ? latRange[0] : 0;
-    const lng = lngRange ? lngRange[0] : 0;
+    const lat = latStart ?? 0;
+    const lng = lngStart ?? 0;
     
-    const isCoastline = (latRange && lngRange) 
-      ? (latRange[0] === 15 && lngRange[0] === 80) || (latRange[0] === 10 && lngRange[0] === 75) || (latRange[0] === 20 && lngRange[0] === 85) || (latRange[0] === 15 && lngRange[0] === 85)
+    const isCoastline = (latStart !== undefined && lngStart !== undefined) 
+      ? (latStart === 15 && lngStart === 80) || (latStart === 10 && lngStart === 75) || (latStart === 20 && lngStart === 85) || (latStart === 15 && lngStart === 85)
       : false;
       
     const layerData = generateLayerSurfaceData(baseTemp, selectedLayer, lat, lng, isCoastline);
@@ -774,14 +781,17 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [selectedLayer, predictions, latRange, lngRange]);
+  }, [selectedLayer, predictions, latStart, lngStart]);
 
   const handleLayerClick = (depth: number) => {
     setSelectedLayer(depth);
+    setIsGenerating(true);
   };
 
   const handleBack = () => {
     setSelectedLayer(null);
+    setSurfaceData(null);
+    setIsGenerating(false);
   };
 
   const surfaceMinMax = useMemo(() => {
