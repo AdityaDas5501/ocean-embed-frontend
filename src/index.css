@@ -349,15 +349,20 @@ body,
   padding: 0;
 }
 
-.date-stepper-chevron:hover {
+.date-stepper-chevron:hover:not(:disabled) {
   background: rgba(139, 182, 214, 0.15);
   color: rgba(139, 182, 214, 1);
   transform: scale(1.1);
 }
 
-.date-stepper-chevron:active {
+.date-stepper-chevron:active:not(:disabled) {
   transform: scale(0.92);
   background: rgba(139, 182, 214, 0.25);
+}
+
+.date-stepper-chevron:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 .date-stepper-value {

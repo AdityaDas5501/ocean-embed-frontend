@@ -6,6 +6,7 @@ const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 interface DateStepperProps {
   date: Date;
   onChange: (d: Date) => void;
+  maxDate?: Date;
 }
 
 const EditableNumber: React.FC<{
@@ -67,10 +68,14 @@ const EditableNumber: React.FC<{
   );
 };
 
-const DateStepper: React.FC<DateStepperProps> = ({ date, onChange }) => {
+const DateStepper: React.FC<DateStepperProps> = ({ date, onChange, maxDate }) => {
   const day = date.getDate();
   const month = date.getMonth();
   const year = date.getFullYear();
+
+  const isNextDayDisabled = maxDate ? new Date(year, month, day + 1) > maxDate : false;
+  const isNextMonthDisabled = maxDate ? new Date(year, month + 1, day) > maxDate : false;
+  const isNextYearDisabled = maxDate ? new Date(year + 1, month, day) > maxDate : false;
 
   const stepDay = (delta: number) => {
     onChange(new Date(year, month, day + delta));
@@ -92,6 +97,7 @@ const DateStepper: React.FC<DateStepperProps> = ({ date, onChange }) => {
           className="date-stepper-chevron"
           onClick={() => stepDay(1)}
           aria-label="Next day"
+          disabled={isNextDayDisabled}
         >
           <ChevronUp size={16} />
         </button>
@@ -116,6 +122,7 @@ const DateStepper: React.FC<DateStepperProps> = ({ date, onChange }) => {
           className="date-stepper-chevron"
           onClick={() => stepMonth(1)}
           aria-label="Next month"
+          disabled={isNextMonthDisabled}
         >
           <ChevronUp size={16} />
         </button>
@@ -137,6 +144,7 @@ const DateStepper: React.FC<DateStepperProps> = ({ date, onChange }) => {
           className="date-stepper-chevron"
           onClick={() => stepYear(1)}
           aria-label="Next year"
+          disabled={isNextYearDisabled}
         >
           <ChevronUp size={16} />
         </button>

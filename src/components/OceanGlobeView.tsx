@@ -11,7 +11,7 @@ const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import DateStepper from './DateStepper';
 import { regionalMockData, formatDateKey } from '../utils/regionalMockData';
-import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind } from 'lucide-react';
+import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, CalendarDays } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
@@ -998,7 +998,35 @@ const OceanGlobeView: React.FC = () => {
               </>
             )}
 
-            <DateStepper date={selectedDate} onChange={setSelectedDate} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%', alignItems: 'flex-end' }}>
+              {(() => {
+                const TODAY = new Date(2026, 8, 21);
+                return (
+                  <>
+                    <button
+                      onClick={() => setSelectedDate(TODAY)}
+                      style={{
+                        width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                        background: 'rgba(4, 21, 45, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(139, 182, 214, 0.2)',
+                        color: 'rgba(139, 182, 214, 0.8)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', transition: 'all 0.2s',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04)'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 182, 214, 0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(4, 21, 45, 0.7)'; e.currentTarget.style.color = 'rgba(139, 182, 214, 0.8)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                      onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+                      onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+                      title="Go to Today (Sept 21, 2026)"
+                    >
+                      <CalendarDays size={16} />
+                    </button>
+                    <DateStepper date={selectedDate} onChange={setSelectedDate} maxDate={TODAY} />
+                  </>
+                );
+              })()}
+            </div>
           </div>
             );
           })()}
@@ -1041,6 +1069,7 @@ const OceanGlobeView: React.FC = () => {
           isOpen={activeObservation !== null}
           onClose={() => setActiveObservation(null)}
           metricType={activeObservation}
+          selectedDate={selectedDate}
           data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ?? null : null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}

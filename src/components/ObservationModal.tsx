@@ -8,11 +8,12 @@ interface ObservationModalProps {
   onClose: () => void;
   metricType: 'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds' | null;
   data: OceanData | null;
+  selectedDate: Date;
   latRange?: [number, number];
   lngRange?: [number, number];
 }
 
-const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, metricType, data, latRange, lngRange }) => {
+const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, metricType, data, selectedDate, latRange, lngRange }) => {
   const [shouldRender, setShouldRender] = useState(false);
   const [activeTab, setActiveTab] = useState<'magnitude' | 'direction'>('magnitude');
   const [timeIndex, setTimeIndex] = useState(14); // 0 to 14 (14 = today)
@@ -199,9 +200,9 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     }
 
     const history = [];
-    // Generate past 14 days
+    // Generate past 14 days relative to selectedDate
     for (let i = 14; i >= 0; i--) {
-      const date = new Date();
+      const date = new Date(selectedDate);
       date.setDate(date.getDate() - i);
       
       // Jitter using sine wave + random noise
@@ -217,7 +218,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
       });
     }
     return history;
-  }, [currentData, currentMetricType]);
+  }, [currentData, currentMetricType, selectedDate]);
 
   if (!shouldRender || !currentData || !currentMetricType) return null;
 
@@ -448,7 +449,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                   {/* Vertical Slider Control */}
                   <div style={{ position: 'absolute', right: '0', top: '50%', transform: 'translateY(-50%)', height: '100%', maxHeight: '350px', width: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', background: 'rgba(0,0,0,0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)', zIndex: 10 }}>
                     <div style={{ color: config.color, fontSize: '15px', fontWeight: 600, marginBottom: '12px', whiteSpace: 'nowrap' }}>
-                      {chartData[timeIndex]?.date || 'Today'}
+                      {chartData[timeIndex]?.date || selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </div>
                     
                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '8px', textAlign: 'center', lineHeight: 1.4 }}>
@@ -478,7 +479,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                     </div>
                     
                     <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: 1.4 }}>
-                      Today
+                      Sel<br/>Date
                     </div>
                   </div>
                 </div>
