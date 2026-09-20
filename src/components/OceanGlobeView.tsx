@@ -11,7 +11,7 @@ const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import DateStepper from './DateStepper';
 import { regionalMockData, formatDateKey } from '../utils/regionalMockData';
-import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, CalendarDays } from 'lucide-react';
+import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, Calendar } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
@@ -1012,7 +1012,10 @@ const OceanGlobeView: React.FC = () => {
                         color: 'rgba(139, 182, 214, 0.8)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: 'pointer', transition: 'all 0.2s',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04)'
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04)',
+                        transform: 'scale(1)',
+                        willChange: 'transform',
+                        backfaceVisibility: 'hidden'
                       }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 182, 214, 0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(4, 21, 45, 0.7)'; e.currentTarget.style.color = 'rgba(139, 182, 214, 0.8)'; e.currentTarget.style.transform = 'scale(1)'; }}
@@ -1020,7 +1023,11 @@ const OceanGlobeView: React.FC = () => {
                       onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
                       title="Go to Today (Sept 21, 2026)"
                     >
-                      <CalendarDays size={16} />
+                      <Calendar size={16}>
+                        <text x="12" y="18" fontSize="9" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" textRendering="geometricPrecision">
+                          {TODAY.getDate()}
+                        </text>
+                      </Calendar>
                     </button>
                     <DateStepper date={selectedDate} onChange={setSelectedDate} maxDate={TODAY} />
                   </>
