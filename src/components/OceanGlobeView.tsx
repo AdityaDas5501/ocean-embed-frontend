@@ -9,7 +9,8 @@ const DepthModal = lazy(() => import('./DepthModal'));
 const ValidationModal = lazy(() => import('./ValidationModal'));
 const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
-import { regionalMockData } from '../utils/regionalMockData';
+import DateStepper from './DateStepper';
+import { regionalMockData, formatDateKey } from '../utils/regionalMockData';
 import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
@@ -65,6 +66,7 @@ const OceanGlobeView: React.FC = () => {
   const searchedLocationRef = useRef<{ lat: number; lon: number } | null>(null);
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [activeObservation, setActiveObservation] = useState<'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds' | null>(null);
+  const [selectedDate, setSelectedDate] = useState(() => new Date('2026-09-20T00:00:00'));
 
   useEffect(() => {
     searchedLocationRef.current = searchedLocation;
@@ -823,7 +825,7 @@ const OceanGlobeView: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
-              {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] 
+              {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]
                 ? 'Ocean State Profile'
                 : 'Landmass Detected'}
             </h3>
@@ -852,6 +854,11 @@ const OceanGlobeView: React.FC = () => {
               ✕
             </button>
           </div>
+          {(() => {
+            const coordKey = `${clickedCell.minLat},${clickedCell.minLng}`;
+            const coordData = regionalMockData[coordKey];
+            const cellData = coordData?.[formatDateKey(selectedDate)];
+            return (
           <div style={{ fontSize: '13px', fontWeight: '300', lineHeight: '1.8', color: 'rgba(255,255,255,0.65)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {searchedLocation ? (
               <>
@@ -865,11 +872,18 @@ const OceanGlobeView: React.FC = () => {
               </>
             )}
 
-            {!regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? (
+            {!coordData ? (
               <div style={{ padding: '16px', background: 'rgba(255,50,50,0.1)', borderRadius: '12px', border: '1px solid rgba(255,50,50,0.2)' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#ff7882', textTransform: 'uppercase', letterSpacing: '1px' }}>No Ocean Telemetry Available</h4>
                 <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
                   This grid cell covers landmass. Subsurface modeling and satellite telemetry are only available for oceanic regions.
+                </p>
+              </div>
+            ) : !cellData ? (
+              <div style={{ padding: '16px', background: 'rgba(139,182,214,0.08)', borderRadius: '12px', border: '1px solid rgba(139,182,214,0.2)' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>No Telemetry Data Available for this Date</h4>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
+                  Satellite observations for {formatDateKey(selectedDate)} have not been ingested yet. Try selecting a date between Sept 18–21, 2026.
                 </p>
               </div>
             ) : (
@@ -884,7 +898,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ThermometerSun size={16} color="#ff7882" /> SST</div>
-                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SST_celsius}°C</div>
+                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SST_celsius}°C</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('SSS')}
@@ -893,7 +907,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Droplets size={16} color="#35b779" /> SSS</div>
-                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSS_psu} psu</div>
+                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SSS_psu} psu</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('SSH')}
@@ -902,7 +916,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Waves size={16} color="#8bb6d6" /> SSH</div>
-                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.SSH_meters}m</div>
+                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SSH_meters}m</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('Currents')}
@@ -911,7 +925,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Navigation size={16} color="#fde725" /> Currents</div>
-                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.currents_uv.join(', ')} m/s</div>
+                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.currents_uv.join(', ')} m/s</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('Winds')}
@@ -920,7 +934,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Wind size={16} color="#d4a5a5" /> Winds</div>
-                      <div style={{ fontWeight: 500 }}>{regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].surface_inputs.winds_uv.join(', ')} m/s</div>
+                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.winds_uv.join(', ')} m/s</div>
                     </button>
                   </div>
                 </div>
@@ -983,7 +997,11 @@ const OceanGlobeView: React.FC = () => {
                 </button>
               </>
             )}
+
+            <DateStepper date={selectedDate} onChange={setSelectedDate} />
           </div>
+            );
+          })()}
         </div>
         </>
       )}
@@ -1007,7 +1025,7 @@ const OceanGlobeView: React.FC = () => {
         <DepthModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
-          predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`].ai_predictions : undefined} 
+          predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`][formatDateKey(selectedDate)].ai_predictions : undefined} 
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
           searchedLocation={searchedLocation}
@@ -1015,7 +1033,7 @@ const OceanGlobeView: React.FC = () => {
         <ValidationModal
           isOpen={isValidationModalOpen}
           onClose={() => setIsValidationModalOpen(false)}
-          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] : null}
+          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ?? null : null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
         />
@@ -1023,7 +1041,7 @@ const OceanGlobeView: React.FC = () => {
           isOpen={activeObservation !== null}
           onClose={() => setActiveObservation(null)}
           metricType={activeObservation}
-          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`] : null}
+          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ?? null : null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
         />

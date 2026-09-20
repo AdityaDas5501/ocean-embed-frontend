@@ -304,3 +304,98 @@ body,
 .recharts-responsive-container {
   outline: none !important;
 }
+
+/* ─── Date Stepper ───────────────────────────────────────────────────────── */
+
+.date-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  background: rgba(4, 21, 45, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 182, 214, 0.2);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  margin-top: auto;
+  width: 100%;
+}
+
+.date-stepper-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.date-stepper-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(139, 182, 214, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.date-stepper-chevron:hover {
+  background: rgba(139, 182, 214, 0.15);
+  color: rgba(139, 182, 214, 1);
+  transform: scale(1.1);
+}
+
+.date-stepper-chevron:active {
+  transform: scale(0.92);
+  background: rgba(139, 182, 214, 0.25);
+}
+
+.date-stepper-value {
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.3px;
+  user-select: none;
+  line-height: 1;
+  min-width: 36px;
+  text-align: center;
+}
+
+.date-stepper-input {
+  width: 44px;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 2px;
+  border-bottom: 1px solid rgba(139, 182, 214, 0.5);
+  border-radius: 0;
+  user-select: text;
+}
+.date-stepper-input:focus {
+  border-bottom-color: rgba(139, 182, 214, 1);
+}
+
+.date-stepper-month {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.date-stepper-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(139, 182, 214, 0.15);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
