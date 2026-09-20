@@ -152,7 +152,8 @@ const SearchPin: React.FC<SearchPinProps> = ({ position, temperature }) => {
         <Billboard position={[0.2, 0, lineLength + ballRadius]}>
           <Text
             fontSize={0.18}
-            color={temperature === null ? "rgba(255, 255, 255, 0.5)" : "#ffffff"}
+            color="#ffffff"
+            fillOpacity={temperature === null ? 0.5 : 1}
             anchorX="left"
             anchorY="middle"
             outlineWidth={0.015}
@@ -341,7 +342,7 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
         const lng = lngRange[0] + t * (lngRange[1] - lngRange[0]);
         return (
           <Billboard key={`lng-${i}`} position={[xPos, -planeSize / 2 - 0.35, 0]}>
-            <Text fontSize={0.18} color="rgba(255, 255, 255, 0.6)" anchorX="center" anchorY="top">
+            <Text fontSize={0.18} color="#ffffff" fillOpacity={0.6} anchorX="center" anchorY="top">
               {`${lng.toFixed(1)}°E`}
             </Text>
           </Billboard>
@@ -355,7 +356,7 @@ const SurfacePlot: React.FC<SurfacePlotProps> = ({
         const lat = latRange[0] + t * (latRange[1] - latRange[0]);
         return (
           <Billboard key={`lat-${i}`} position={[-planeSize / 2 - 0.35, yPos, 0]}>
-            <Text fontSize={0.18} color="rgba(255, 255, 255, 0.6)" anchorX="right" anchorY="middle">
+            <Text fontSize={0.18} color="#ffffff" fillOpacity={0.6} anchorX="right" anchorY="middle">
               {`${lat.toFixed(1)}°N`}
             </Text>
           </Billboard>
@@ -526,7 +527,8 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
         <Billboard>
           <Text
             fontSize={hovered ? 0.28 : 0.22}
-            color={hovered ? '#00ff88' : 'rgba(255, 255, 255, 0.9)'}
+            color={hovered ? '#00ff88' : '#ffffff'}
+            fillOpacity={hovered ? 1 : 0.9}
             fontWeight={hovered ? 700 : 400}
             anchorX="right"
             anchorY="middle"
@@ -563,7 +565,8 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
         <Billboard>
           <Text
             fontSize={hovered ? 0.28 : 0.22}
-            color={hovered ? '#00ff88' : 'rgba(255, 255, 255, 0.9)'}
+            color={hovered ? '#00ff88' : '#ffffff'}
+            fillOpacity={hovered ? 1 : 0.9}
             fontWeight={hovered ? 700 : 400}
             anchorX="left"
             anchorY="middle"
