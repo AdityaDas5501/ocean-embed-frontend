@@ -57,6 +57,7 @@ const OceanGlobeView: React.FC = () => {
   const [focusedRegion, setFocusedRegion] = useState<'bob' | 'as' | null>(null);
   const focusedRegionRef = useRef<'bob' | 'as' | null>(null);
   const isFlightAnimatingRef = useRef<boolean>(false);
+  const flightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cleanupMouseRef = useRef<(() => void) | null>(null);
   const [clickedCell, setClickedCell] = useState<{ minLat: number; maxLat: number; minLng: number; maxLng: number } | null>(null);
   const [hoveredCell, setHoveredCell] = useState<Feature | null>(null);
@@ -71,6 +72,30 @@ const OceanGlobeView: React.FC = () => {
   useEffect(() => {
     searchedLocationRef.current = searchedLocation;
   }, [searchedLocation]);
+
+  const triggerFlight = useCallback((target: { lat: number; lng: number; altitude: number }, duration: number, disablePointerEvents: boolean = true) => {
+    if (!globeRef.current) return;
+    
+    // Stop any existing flight to prevent tween collisions/jitter
+    const currentPov = globeRef.current.pointOfView();
+    globeRef.current.pointOfView({ lat: currentPov.lat, lng: currentPov.lng, altitude: currentPov.altitude }, 0);
+    
+    // Start new flight
+    setTimeout(() => {
+      if (globeRef.current) {
+        globeRef.current.pointOfView(target, duration);
+      }
+    }, 10);
+    
+    if (disablePointerEvents) {
+      isFlightAnimatingRef.current = true;
+      if (flightTimeoutRef.current) clearTimeout(flightTimeoutRef.current);
+      
+      flightTimeoutRef.current = setTimeout(() => {
+        isFlightAnimatingRef.current = false;
+      }, duration + 10);
+    }
+  }, []);
 
   const [isGlobeReady, setIsGlobeReady] = useState(false);
   const [isMapDataLoaded, setIsMapDataLoaded] = useState(false);
@@ -163,7 +188,7 @@ const OceanGlobeView: React.FC = () => {
         setTimeout(() => {
           setShowLoading(false);
           if (globeRef.current) {
-            globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 4000);
+            triggerFlight({ lat: 5, lng: 80, altitude: 0.8 }, 4000, false);
             setTimeout(() => {
               isIntroPlaying.current = false;
               setIntroFinished(true);
@@ -228,25 +253,17 @@ const OceanGlobeView: React.FC = () => {
 
   const handleFocusBayOfBengal = () => {
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat: 13.5, lng: 90, altitude: 0.45 }, 2000);
+      triggerFlight({ lat: 13.5, lng: 90, altitude: 0.45 }, 2000);
       setFocusedRegion('bob');
       focusedRegionRef.current = 'bob';
-      isFlightAnimatingRef.current = true;
-      setTimeout(() => {
-        isFlightAnimatingRef.current = false;
-      }, 2000);
     }
   };
 
   const handleFocusArabianSea = () => {
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat: 14.5, lng: 63.5, altitude: 0.45 }, 2000);
+      triggerFlight({ lat: 14.5, lng: 63.5, altitude: 0.45 }, 2000);
       setFocusedRegion('as');
       focusedRegionRef.current = 'as';
-      isFlightAnimatingRef.current = true;
-      setTimeout(() => {
-        isFlightAnimatingRef.current = false;
-      }, 2000);
     }
   };
 
@@ -257,11 +274,7 @@ const OceanGlobeView: React.FC = () => {
     setHoveredCell(null);
     setSearchedLocation(null);
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat: 5, lng: 80, altitude: 0.8 }, 1500);
-      isFlightAnimatingRef.current = true;
-      setTimeout(() => {
-        isFlightAnimatingRef.current = false;
-      }, 1500);
+      triggerFlight({ lat: 5, lng: 80, altitude: 0.8 }, 1500);
     }
   };
 
@@ -291,11 +304,7 @@ const OceanGlobeView: React.FC = () => {
 
     // Fly the camera to the searched coordinate
     if (globeRef.current) {
-      globeRef.current.pointOfView({ lat, lng: lon, altitude: 0.35 }, 2000);
-      isFlightAnimatingRef.current = true;
-      setTimeout(() => {
-        isFlightAnimatingRef.current = false;
-      }, 2000);
+      triggerFlight({ lat, lng: lon, altitude: 0.35 }, 2000);
     }
 
     // Compute the parent 5° grid cell and open the sidebar
