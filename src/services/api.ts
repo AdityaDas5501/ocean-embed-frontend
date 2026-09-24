@@ -106,6 +106,13 @@ export const formatDateKey = (d: Date): string => {
 async function fetchWithTracing(url: string, options: RequestInit = {}, traceId?: string) {
   const headers = new Headers(options.headers || {});
   if (traceId) headers.set('x-trace-id', traceId);
+  
+  // Inject JWT token for authenticated Node Gateway routes
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  
   return fetch(url, { ...options, headers });
 }
 
@@ -173,7 +180,7 @@ export async function fetchOceanProfile(
     });
   }
 
-  const url = `${API_BASE_URL}/internal/v1/ocean/profile?lat=${lat}&lon=${lon}&date=${date}&async=true`;
+  const url = `${API_BASE_URL}/ocean/profile?lat=${lat}&lon=${lon}&date=${date}&async=true`;
   let response: Response;
   try {
     response = await fetchWithTracing(url, { signal }, traceId);
@@ -196,7 +203,7 @@ export async function fetchOceanTask(
   signal?: AbortSignal,
   traceId?: string
 ): Promise<OceanTaskResponse> {
-  const url = `${API_BASE_URL}/internal/v1/ocean/task/${taskId}?lat=${lat}&lon=${lon}&date=${date}`;
+  const url = `${API_BASE_URL}/ocean/task/${taskId}?lat=${lat}&lon=${lon}&date=${date}`;
   let response: Response;
   try {
     response = await fetchWithTracing(url, { signal }, traceId);
@@ -212,7 +219,7 @@ export async function fetchOceanTask(
 }
 
 export async function fetchAvailableDates(lat: number, lon: number, traceId?: string): Promise<any> {
-  const url = `${API_BASE_URL}/internal/v1/ocean/available-dates?lat=${lat}&lon=${lon}`;
+  const url = `${API_BASE_URL}/ocean/available-dates?lat=${lat}&lon=${lon}`;
   let response: Response;
   try {
     response = await fetchWithTracing(url, {}, traceId);
@@ -224,7 +231,7 @@ export async function fetchAvailableDates(lat: number, lon: number, traceId?: st
 }
 
 export async function fetchRegionSummary(region: string, date: string, traceId?: string): Promise<any> {
-  const url = `${API_BASE_URL}/internal/v1/ocean/region-summary?region=${region}&date=${date}`;
+  const url = `${API_BASE_URL}/ocean/region-summary?region=${region}&date=${date}`;
   let response: Response;
   try {
     response = await fetchWithTracing(url, {}, traceId);
@@ -236,7 +243,7 @@ export async function fetchRegionSummary(region: string, date: string, traceId?:
 }
 
 export async function fetchHistoricalData(lat: number, lon: number, end_date: string, metric: string = 'SST', traceId?: string): Promise<any> {
-  const url = `${API_BASE_URL}/internal/v1/ocean/historical?lat=${lat}&lon=${lon}&end_date=${end_date}&metric=${metric}`;
+  const url = `${API_BASE_URL}/ocean/historical?lat=${lat}&lon=${lon}&end_date=${end_date}&metric=${metric}`;
   let response: Response;
   try {
     response = await fetchWithTracing(url, {}, traceId);
@@ -253,7 +260,7 @@ export async function fetchHistoricalData(lat: number, lon: number, end_date: st
  */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/internal/v1/health`, {
+    const res = await fetch(`${API_BASE_URL}/health`, {
       signal: AbortSignal.timeout(5000), // 5-second hard timeout
     });
     return res.ok;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
+import { API_BASE_URL } from '../services/api';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -11,6 +12,44 @@ interface LoginPageProps {
 
 const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+
+      // Store token based on rememberMe preference
+      if (rememberMe) {
+        localStorage.setItem('token', data.access_token);
+      } else {
+        sessionStorage.setItem('token', data.access_token);
+      }
+
+      onLogin();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="login-container" style={{ backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
@@ -31,13 +70,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
 
 
 
-        <form onSubmit={(e) => { e.preventDefault(); onLogin(); }}>
+        {error && (
+          <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', textAlign: 'center', fontSize: '0.875rem' }}>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin}>
           <div className="input-container">
             <User className="input-icon" size={20} />
             <input 
               type="email" 
               className="input-field" 
               placeholder="Email" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address.')}
               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
@@ -50,8 +97,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
               type={showPassword ? "text" : "password"} 
               className="input-field" 
               placeholder="Password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-
             />
             <button 
               type="button" 
@@ -65,14 +113,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0', fontSize: '0.875rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#D1D5DB', cursor: 'pointer' }}>
-              <input type="checkbox" style={{ accentColor: '#2563EB', width: '16px', height: '16px', cursor: 'pointer' }} />
+              <input 
+                type="checkbox" 
+                style={{ accentColor: '#2563EB', width: '16px', height: '16px', cursor: 'pointer' }}
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               Remember me
             </label>
             <a href="#" className="text-link">Forgot Password?</a>
           </div>
 
-          <button type="submit" className="primary-btn">
-            Login
+          <button type="submit" className="primary-btn" disabled={isLoading} style={{ opacity: isLoading ? 0.7 : 1 }}>
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
