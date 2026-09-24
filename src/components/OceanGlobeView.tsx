@@ -11,7 +11,7 @@ const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import DateStepper from './DateStepper';
 import { fetchOceanProfile, fetchOceanTask, formatDateKey, NetworkError, ApiDataError, checkBackendHealth } from '../services/api';
-import type { OceanDataResponse, OceanTaskResponse } from '../services/api';
+import type { OceanDataResponse } from '../services/api';
 import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, Calendar, WifiOff, RefreshCw } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
@@ -175,7 +175,7 @@ const OceanGlobeView: React.FC = () => {
       clearTimeout(timer);
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clickedCell, selectedDate]);
 
   useEffect(() => {
@@ -184,22 +184,22 @@ const OceanGlobeView: React.FC = () => {
 
   const triggerFlight = useCallback((target: { lat: number; lng: number; altitude: number }, duration: number, disablePointerEvents: boolean = true) => {
     if (!globeRef.current) return;
-    
+
     // Stop any existing flight to prevent tween collisions/jitter
     const currentPov = globeRef.current.pointOfView();
     globeRef.current.pointOfView({ lat: currentPov.lat, lng: currentPov.lng, altitude: currentPov.altitude }, 0);
-    
+
     // Start new flight
     setTimeout(() => {
       if (globeRef.current) {
         globeRef.current.pointOfView(target, duration);
       }
     }, 10);
-    
+
     if (disablePointerEvents) {
       isFlightAnimatingRef.current = true;
       if (flightTimeoutRef.current) clearTimeout(flightTimeoutRef.current);
-      
+
       flightTimeoutRef.current = setTimeout(() => {
         isFlightAnimatingRef.current = false;
       }, duration + 10);
@@ -511,7 +511,7 @@ const OceanGlobeView: React.FC = () => {
     el.style.letterSpacing = d.isOcean ? '1px' : '0.5px';
     el.style.textShadow = d.isOcean ? 'none' : '0px 0px 2px rgba(255,255,255,0.8)';
     el.style.whiteSpace = 'nowrap';
-    
+
     container.style.pointerEvents = 'none';
     container.style.zIndex = '1';
     container.appendChild(el);
@@ -562,7 +562,7 @@ const OceanGlobeView: React.FC = () => {
             // --- Mouse hover raycasting for cursor pointer ---
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
-            
+
             // Add custom crisp starfield
             if (!scene.userData.hasStars) {
               scene.userData.hasStars = true;
@@ -581,14 +581,14 @@ const OceanGlobeView: React.FC = () => {
                 const r = 800 + Math.random() * 1200;
                 const theta = 2 * Math.PI * Math.random();
                 const phi = Math.acos(2 * Math.random() - 1);
-                
+
                 const x = r * Math.sin(phi) * Math.cos(theta);
                 const y = r * Math.sin(phi) * Math.sin(theta);
                 const z = r * Math.cos(phi);
-                
+
                 starsVertices.push(x, y, z);
               }
-              
+
               starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
               const starField = new THREE.Points(starsGeometry, starsMaterial);
               scene.add(starField);
@@ -636,12 +636,12 @@ const OceanGlobeView: React.FC = () => {
                 const lng = (Math.atan2(point.x, point.z) * 180) / Math.PI;
 
                 const currentRegion = focusedRegionRef.current;
-                
+
                 if (!currentRegion) {
                   const bob = REGION_BOUNDS['bob'];
                   const as = REGION_BOUNDS['as'];
                   if ((lat >= bob.minLat && lat <= bob.maxLat && lng >= bob.minLng && lng <= bob.maxLng) ||
-                      (lat >= as.minLat && lat <= as.maxLat && lng >= as.minLng && lng <= as.maxLng)) {
+                    (lat >= as.minLat && lat <= as.maxLat && lng >= as.minLng && lng <= as.maxLng)) {
                     renderer.domElement.style.cursor = 'pointer';
                   } else {
                     renderer.domElement.style.cursor = 'default';
@@ -941,358 +941,358 @@ const OceanGlobeView: React.FC = () => {
         <>
           <div
             className={`sidebar-panel ${isClosing ? 'sidebar-panel-closing' : ''}`}
-          onMouseEnter={() => setHoveredCell(null)}
-          onAnimationEnd={() => {
-            if (isClosing) {
-              // Sidebar takes 400ms to close. Wait 400ms more for the 800ms fade to finish completely.
-              closeTimeoutRef.current = setTimeout(() => {
-                setClickedCell(null);
-                setIsClosing(false);
-              }, 400);
-            }
-          }}
-        >
-          {/* ── Sidebar Header ───────────────────────────────────────────────── */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
-              {isLoading ? 'Fetching Profile…' :
-                fetchError?.type === 'network' ? 'Backend Unreachable' :
-                fetchError?.type === 'no-data' ? 'No Data Available' :
-                oceanData ? 'Ocean State Profile' : 'Ocean State Profile'}
-            </h3>
-            <button
-              onClick={() => {
-                setIsClosing(true);
-                setIsModalOpen(false);
-                if (searchedLocation) {
-                  if (focusedRegion === 'bob') {
-                    handleFocusBayOfBengal();
-                  } else if (focusedRegion === 'as') {
-                    handleFocusArabianSea();
+            onMouseEnter={() => setHoveredCell(null)}
+            onAnimationEnd={() => {
+              if (isClosing) {
+                // Sidebar takes 400ms to close. Wait 400ms more for the 800ms fade to finish completely.
+                closeTimeoutRef.current = setTimeout(() => {
+                  setClickedCell(null);
+                  setIsClosing(false);
+                }, 400);
+              }
+            }}
+          >
+            {/* ── Sidebar Header ───────────────────────────────────────────────── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
+                {isLoading ? 'Fetching Profile…' :
+                  fetchError?.type === 'network' ? 'Backend Unreachable' :
+                    fetchError?.type === 'no-data' ? 'No Data Available' :
+                      oceanData ? 'Ocean State Profile' : 'Ocean State Profile'}
+              </h3>
+              <button
+                onClick={() => {
+                  setIsClosing(true);
+                  setIsModalOpen(false);
+                  if (searchedLocation) {
+                    if (focusedRegion === 'bob') {
+                      handleFocusBayOfBengal();
+                    } else if (focusedRegion === 'as') {
+                      handleFocusArabianSea();
+                    }
                   }
-                }
-                setSearchedLocation(null);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'rgba(255,255,255,0.5)',
-                cursor: 'pointer',
-                fontSize: '18px',
-                padding: '0 4px',
-              }}
-            >
-              ✕
-            </button>
-          </div>
+                  setSearchedLocation(null);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.5)',
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  padding: '0 4px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-          {/* ── Sidebar Body ─────────────────────────────────────────────────── */}
-          <div style={{ fontSize: '13px', fontWeight: '300', lineHeight: '1.8', color: 'rgba(255,255,255,0.65)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Coordinate header */}
-            {searchedLocation ? (
-              <>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {(Math.round(searchedLocation.lat / 0.25) * 0.25).toFixed(2)}°N</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {(Math.round(searchedLocation.lon / 0.25) * 0.25).toFixed(2)}°E</div>
-              </>
-            ) : (
-              <>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {clickedCell.minLat}°N – {clickedCell.maxLat}°N</div>
-                <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {clickedCell.minLng}°E – {clickedCell.maxLng}°E</div>
-              </>
-            )}
+            {/* ── Sidebar Body ─────────────────────────────────────────────────── */}
+            <div style={{ fontSize: '13px', fontWeight: '300', lineHeight: '1.8', color: 'rgba(255,255,255,0.65)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Coordinate header */}
+              {searchedLocation ? (
+                <>
+                  <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {(Math.round(searchedLocation.lat / 0.25) * 0.25).toFixed(2)}°N</div>
+                  <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {(Math.round(searchedLocation.lon / 0.25) * 0.25).toFixed(2)}°E</div>
+                </>
+              ) : (
+                <>
+                  <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {clickedCell.minLat}°N – {clickedCell.maxLat}°N</div>
+                  <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Longitude:</span> {clickedCell.minLng}°E – {clickedCell.maxLng}°E</div>
+                </>
+              )}
 
-            {/* ── Loading State ── */}
-            {isLoading && (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '16px',
-                padding: '24px',
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: '16px',
-                border: '1px solid rgba(139,182,214,0.1)',
-                backdropFilter: 'blur(8px)',
-              }}>
-                {isPolling ? (
-                  <div style={{ width: '100%', maxWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1px', textTransform: 'uppercase' }}>Processing</span>
-                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>{pollProgress}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '14px', background: 'rgba(0, 20, 40, 0.5)', borderRadius: '7px', overflow: 'hidden', border: '1px solid rgba(139,182,214,0.2)', boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.5)' }}>
-                      <div style={{ 
-                        width: `${pollProgress}%`, 
-                        height: '100%', 
-                        background: 'linear-gradient(90deg, #003366, #0074D9, #4facfe)', 
-                        transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                        borderRadius: '6px',
-                        position: 'relative',
-                        overflow: 'hidden'
-                      }}>
-                        <div style={{
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          width: '40px',
-                          height: '100%',
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
-                          animation: 'travel-glare 1.5s infinite linear'
-                        }} />
+              {/* ── Loading State ── */}
+              {isLoading && (
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '16px',
+                  padding: '24px',
+                  background: 'rgba(255,255,255,0.03)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(139,182,214,0.1)',
+                  backdropFilter: 'blur(8px)',
+                }}>
+                  {isPolling ? (
+                    <div style={{ width: '100%', maxWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1px', textTransform: 'uppercase' }}>Processing</span>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>{pollProgress}%</span>
                       </div>
+                      <div style={{ width: '100%', height: '14px', background: 'rgba(0, 20, 40, 0.5)', borderRadius: '7px', overflow: 'hidden', border: '1px solid rgba(139,182,214,0.2)', boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.5)' }}>
+                        <div style={{
+                          width: `${pollProgress}%`,
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #003366, #0074D9, #4facfe)',
+                          transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                          borderRadius: '6px',
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '40px',
+                            height: '100%',
+                            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+                            animation: 'travel-glare 1.5s infinite linear'
+                          }} />
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Generating Subsurface Matrix...</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Generating Subsurface Matrix...</div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{
-                      width: '44px',
-                      height: '44px',
-                      borderRadius: '50%',
-                      border: '2px solid rgba(139,182,214,0.15)',
-                      borderTopColor: '#8bb6d6',
-                      borderRightColor: 'rgba(139,182,214,0.5)',
-                      animation: 'spin 0.9s linear infinite',
-                      boxShadow: '0 0 20px rgba(139,182,214,0.2)',
-                    }} />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Fetching Ocean Data</div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Contacting AI inference server…</div>
-                    </div>
-                  </>
-                )}
-                <style>{`
+                  ) : (
+                    <>
+                      <div style={{
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        border: '2px solid rgba(139,182,214,0.15)',
+                        borderTopColor: '#8bb6d6',
+                        borderRightColor: 'rgba(139,182,214,0.5)',
+                        animation: 'spin 0.9s linear infinite',
+                        boxShadow: '0 0 20px rgba(139,182,214,0.2)',
+                      }} />
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Fetching Ocean Data</div>
+                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Contacting AI inference server…</div>
+                      </div>
+                    </>
+                  )}
+                  <style>{`
                   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                   @keyframes travel-glare {
                     0% { transform: translateX(-50px) skewX(-20deg); }
                     100% { transform: translateX(260px) skewX(-20deg); }
                   }
                 `}</style>
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* ── Network Error State ── */}
-            {!isLoading && fetchError?.type === 'network' && (
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '16px',
-                padding: '24px',
-                background: 'rgba(255,50,50,0.06)',
-                borderRadius: '16px',
-                border: '1px solid rgba(255,50,50,0.18)',
-              }}>
+              {/* ── Network Error State ── */}
+              {!isLoading && fetchError?.type === 'network' && (
                 <div style={{
-                  width: '52px', height: '52px', borderRadius: '50%',
-                  background: 'rgba(255,50,50,0.12)',
-                  border: '1px solid rgba(255,80,80,0.25)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '16px',
+                  padding: '24px',
+                  background: 'rgba(255,50,50,0.06)',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(255,50,50,0.18)',
                 }}>
-                  <WifiOff size={24} color="#ff7882" />
+                  <div style={{
+                    width: '52px', height: '52px', borderRadius: '50%',
+                    background: 'rgba(255,50,50,0.12)',
+                    border: '1px solid rgba(255,80,80,0.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <WifiOff size={24} color="#ff7882" />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#ff7882', letterSpacing: '0.5px' }}>Backend Unreachable</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', lineHeight: '1.6', maxWidth: '180px' }}>
+                      {fetchError.message}
+                    </div>
+                  </div>
+                  <button
+                    id="retry-connection-btn"
+                    onClick={() => triggerFetch(clickedCell.minLat, clickedCell.minLng, selectedDate)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '10px 20px',
+                      background: 'rgba(255,80,80,0.12)',
+                      border: '1px solid rgba(255,80,80,0.3)',
+                      borderRadius: '10px',
+                      color: '#ff7882',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      letterSpacing: '0.5px',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.22)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  >
+                    <RefreshCw size={14} />
+                    Retry Connection
+                  </button>
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#ff7882', letterSpacing: '0.5px' }}>Backend Unreachable</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', lineHeight: '1.6', maxWidth: '180px' }}>
+              )}
+
+              {/* ── No Data State (404 / 422) ── */}
+              {!isLoading && fetchError?.type === 'no-data' && (
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(139,182,214,0.06)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(139,182,214,0.18)',
+                }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>No Data Available</h4>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6' }}>
                     {fetchError.message}
-                  </div>
+                  </p>
                 </div>
-                <button
-                  id="retry-connection-btn"
-                  onClick={() => triggerFetch(clickedCell.minLat, clickedCell.minLng, selectedDate)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '10px 20px',
-                    background: 'rgba(255,80,80,0.12)',
-                    border: '1px solid rgba(255,80,80,0.3)',
-                    borderRadius: '10px',
-                    color: '#ff7882',
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    letterSpacing: '0.5px',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.22)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
-                >
-                  <RefreshCw size={14} />
-                  Retry Connection
-                </button>
-              </div>
-            )}
+              )}
 
-            {/* ── No Data State (404 / 422) ── */}
-            {!isLoading && fetchError?.type === 'no-data' && (
-              <div style={{
-                padding: '16px',
-                background: 'rgba(139,182,214,0.06)',
-                borderRadius: '12px',
-                border: '1px solid rgba(139,182,214,0.18)',
-              }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>No Data Available</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6' }}>
-                  {fetchError.message}
-                </p>
-              </div>
-            )}
-
-            {/* ── Success State ── */}
-            {!isLoading && !fetchError && oceanData && (
-              <>
-                <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-                    <button
-                      onClick={() => setActiveObservation('SST')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,120,130,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,120,130,0.3)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ThermometerSun size={16} color="#ff7882" /> SST</div>
-                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SST_celsius}°C</div>
-                    </button>
-                    <button
-                      onClick={() => setActiveObservation('SSS')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(53,183,121,0.15)'; e.currentTarget.style.borderColor = 'rgba(53,183,121,0.3)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Droplets size={16} color="#35b779" /> SSS</div>
-                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSS_psu} psu</div>
-                    </button>
-                    <button
-                      onClick={() => setActiveObservation('SSH')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,182,214,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,182,214,0.3)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Waves size={16} color="#8bb6d6" /> SSH</div>
-                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSH_meters}m</div>
-                    </button>
-                    <button
-                      onClick={() => setActiveObservation('Currents')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(253,231,37,0.15)'; e.currentTarget.style.borderColor = 'rgba(253,231,37,0.3)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Navigation size={16} color="#fde725" /> Currents</div>
-                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.currents_uv?.join(', ') ?? 'N/A'} m/s</div>
-                    </button>
-                    <button
-                      onClick={() => setActiveObservation('Winds')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(212,165,165,0.15)'; e.currentTarget.style.borderColor = 'rgba(212,165,165,0.3)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Wind size={16} color="#d4a5a5" /> Winds</div>
-                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.winds_uv?.join(', ') ?? 'N/A'} m/s</div>
-                    </button>
+              {/* ── Success State ── */}
+              {!isLoading && !fetchError && oceanData && (
+                <>
+                  <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+                      <button
+                        onClick={() => setActiveObservation('SST')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,120,130,0.15)'; e.currentTarget.style.borderColor = 'rgba(255,120,130,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ThermometerSun size={16} color="#ff7882" /> SST</div>
+                        <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SST_celsius}°C</div>
+                      </button>
+                      <button
+                        onClick={() => setActiveObservation('SSS')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(53,183,121,0.15)'; e.currentTarget.style.borderColor = 'rgba(53,183,121,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Droplets size={16} color="#35b779" /> SSS</div>
+                        <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSS_psu} psu</div>
+                      </button>
+                      <button
+                        onClick={() => setActiveObservation('SSH')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,182,214,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,182,214,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Waves size={16} color="#8bb6d6" /> SSH</div>
+                        <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSH_meters}m</div>
+                      </button>
+                      <button
+                        onClick={() => setActiveObservation('Currents')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(253,231,37,0.15)'; e.currentTarget.style.borderColor = 'rgba(253,231,37,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Navigation size={16} color="#fde725" /> Currents</div>
+                        <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.currents_uv?.join(', ') ?? 'N/A'} m/s</div>
+                      </button>
+                      <button
+                        onClick={() => setActiveObservation('Winds')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(212,165,165,0.15)'; e.currentTarget.style.borderColor = 'rgba(212,165,165,0.3)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Wind size={16} color="#d4a5a5" /> Winds</div>
+                        <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.winds_uv?.join(', ') ?? 'N/A'} m/s</div>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'linear-gradient(135deg, #175d96, #0b355c)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
-                  }}
-                >
-                  View 3D Subsurface Profile
-                </button>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, #175d96, #0b355c)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 15px rgba(23, 93, 150, 0.4)',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(23, 93, 150, 0.6)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 15px rgba(23, 93, 150, 0.4)';
+                    }}
+                  >
+                    View 3D Subsurface Profile
+                  </button>
 
-                <button
-                  onClick={() => setIsValidationModalOpen(true)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    color: '#ff7882',
-                    border: '1px solid rgba(255, 120, 130, 0.3)',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    marginTop: '4px'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 120, 130, 0.1)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <Target size={16} />
-                    View Validation Framework
-                  </div>
-                </button>
-              </>
-            )}
+                  <button
+                    onClick={() => setIsValidationModalOpen(true)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: '#ff7882',
+                      border: '1px solid rgba(255, 120, 130, 0.3)',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      marginTop: '4px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 120, 130, 0.1)';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <Target size={16} />
+                      View Validation Framework
+                    </div>
+                  </button>
+                </>
+              )}
 
-            {/* ── Date Stepper (always shown at bottom) ── */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%', alignItems: 'flex-end' }}>
-              {(() => {
-                const TODAY = new Date(2024, 11, 15);
-                return (
-                  <>
-                    <button
-                      onClick={(e) => e.preventDefault()}
-                      style={{
-                        width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                        background: 'rgba(4, 21, 45, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-                        border: '1px solid rgba(139, 182, 214, 0.2)',
-                        color: 'rgba(139, 182, 214, 0.8)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04)',
-                        transform: 'scale(1)',
-                        willChange: 'transform',
-                        backfaceVisibility: 'hidden'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 182, 214, 0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(4, 21, 45, 0.7)'; e.currentTarget.style.color = 'rgba(139, 182, 214, 0.8)'; e.currentTarget.style.transform = 'scale(1)'; }}
-                      onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
-                      onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-                      title="Go to Today (Dec 15, 2024)"
-                    >
-                      <Calendar size={16}>
-                        <text x="12" y="18" fontSize="9" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" textRendering="geometricPrecision">
-                          {TODAY.getDate()}
-                        </text>
-                      </Calendar>
-                    </button>
-                    <DateStepper date={selectedDate} onChange={setSelectedDate} maxDate={TODAY} />
-                  </>
-                );
-              })()}
+              {/* ── Date Stepper (always shown at bottom) ── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%', alignItems: 'flex-end' }}>
+                {(() => {
+                  const TODAY = new Date(2024, 11, 15);
+                  return (
+                    <>
+                      <button
+                        onClick={(e) => e.preventDefault()}
+                        style={{
+                          width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                          background: 'rgba(4, 21, 45, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+                          border: '1px solid rgba(139, 182, 214, 0.2)',
+                          color: 'rgba(139, 182, 214, 0.8)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', transition: 'all 0.2s',
+                          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04)',
+                          transform: 'scale(1)',
+                          willChange: 'transform',
+                          backfaceVisibility: 'hidden'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 182, 214, 0.15)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(4, 21, 45, 0.7)'; e.currentTarget.style.color = 'rgba(139, 182, 214, 0.8)'; e.currentTarget.style.transform = 'scale(1)'; }}
+                        onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
+                        onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
+                        title="Go to Today (Dec 15, 2024)"
+                      >
+                        <Calendar size={16}>
+                          <text x="12" y="18" fontSize="9" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" textRendering="geometricPrecision">
+                            {TODAY.getDate()}
+                          </text>
+                        </Calendar>
+                      </button>
+                      <DateStepper date={selectedDate} onChange={setSelectedDate} maxDate={TODAY} />
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
-        </div>
         </>
       )}
 
@@ -1312,9 +1312,9 @@ const OceanGlobeView: React.FC = () => {
           </div>
         ) : null
       }>
-        <DepthModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+        <DepthModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
           predictions={oceanData?.ai_predictions}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
