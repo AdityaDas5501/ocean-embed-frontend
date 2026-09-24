@@ -1,13 +1,13 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import type { OceanData } from '../utils/regionalMockData';
+import { type OceanDataResponse, fetchHistoricalData } from '../services/api';
 
 interface ObservationModalProps {
   isOpen: boolean;
   onClose: () => void;
   metricType: 'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds' | null;
-  data: OceanData | null;
+  data: OceanDataResponse | null;
   selectedDate: Date;
   latRange?: [number, number];
   lngRange?: [number, number];
@@ -16,7 +16,6 @@ interface ObservationModalProps {
 const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, metricType, data, selectedDate, latRange, lngRange }) => {
   const [shouldRender, setShouldRender] = useState(false);
   const [activeTab, setActiveTab] = useState<'magnitude' | 'direction'>('magnitude');
-  const [timeIndex, setTimeIndex] = useState(14); // 0 to 14 (14 = today)
   const prevData = useRef(data);
   const prevMetricType = useRef(metricType);
 
@@ -27,12 +26,7 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
   const currentMetricType = metricType || prevMetricType.current;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const targetPhaseOffset = useRef(((14 - timeIndex) / 14) * Math.PI * 2);
   
-  useEffect(() => {
-    targetPhaseOffset.current = ((14 - timeIndex) / 14) * Math.PI * 2;
-  }, [timeIndex]);
-
   useEffect(() => {
     if (!isOpen || !currentData || !currentMetricType) return;
     
@@ -81,9 +75,8 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     });
 
     let animationFrameId: number;
-    let currentPhaseOffset = targetPhaseOffset.current;
     
-    const speedMultiplier = currentMetricType === 'Winds' ? 1.2 : 3.0;
+    const speedMultiplier = currentMetricType === 'Winds' ? 0.2 : 3.0;
     const particleColor = currentMetricType === 'Currents' ? '#fde725' : '#d4a5a5';
 
     // Fill initial background solidly once
@@ -92,8 +85,6 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     ctx.fillRect(0, 0, width, height);
 
     const render = () => {
-      currentPhaseOffset += (targetPhaseOffset.current - currentPhaseOffset) * 0.1;
-      
       // Fading trails effect
       ctx.globalAlpha = 1.0;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.15)'; // trail fade speed
@@ -116,33 +107,40 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
         const fI = exactI - Math.floor(exactI);
 
         if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height) {
-          const [u11, v11] = dataMatrix[i1][j1];
-          const [u12, v12] = dataMatrix[i1][j2];
-          const [u21, v21] = dataMatrix[i2][j1];
-          const [u22, v22] = dataMatrix[i2][j2];
-          
-          const u = u11 * (1-fJ)*(1-fI) + u12 * fJ*(1-fI) + u21 * (1-fJ)*fI + u22 * fJ*fI;
-          const v = v11 * (1-fJ)*(1-fI) + v12 * fJ*(1-fI) + v21 * (1-fJ)*fI + v22 * fJ*fI;
-          
-          const baseMag = Math.sqrt(u*u + v*v);
-          const baseAngle = Math.atan2(u, v);
-          
-          const perturbedAngle = baseAngle + Math.sin(currentPhaseOffset + exactI * 0.2 + exactJ * 0.2) * 0.5; 
-          const magMultiplier = 1 + Math.cos(currentPhaseOffset * 2 + exactI * 0.1) * 0.3;
-          
-          const pU = baseMag * magMultiplier * Math.sin(perturbedAngle);
-          const pV = baseMag * magMultiplier * Math.cos(perturbedAngle);
+          const cell11 = dataMatrix[i1][j1];
+          const cell12 = dataMatrix[i1][j2];
+          const cell21 = dataMatrix[i2][j1];
+          const cell22 = dataMatrix[i2][j2];
 
-          p.prevX = p.x;
-          p.prevY = p.y;
-          p.x += pU * speedMultiplier;
-          p.y -= pV * speedMultiplier; // Subtract because canvas Y is down
+          // If any surrounding cell is null (e.g. landmass), kill the particle so it respawns
+          if (!cell11 || !cell12 || !cell21 || !cell22) {
+            p.age = p.lifespan + 1;
+          } else {
+            const u11 = cell11.u, v11 = cell11.v;
+            const u12 = cell12.u, v12 = cell12.v;
+            const u21 = cell21.u, v21 = cell21.v;
+            const u22 = cell22.u, v22 = cell22.v;
+            
+            const u = u11 * (1-fJ)*(1-fI) + u12 * fJ*(1-fI) + u21 * (1-fJ)*fI + u22 * fJ*fI;
+            const v = v11 * (1-fJ)*(1-fI) + v12 * fJ*(1-fI) + v21 * (1-fJ)*fI + v22 * fJ*fI;
+            
+            const baseMag = Math.sqrt(u*u + v*v);
+            const baseAngle = Math.atan2(u, v);
+            
+            const pU = baseMag * Math.sin(baseAngle);
+            const pV = baseMag * Math.cos(baseAngle);
 
-          ctx.beginPath();
-          ctx.moveTo(p.prevX, p.prevY);
-          ctx.lineTo(p.x, p.y);
-          ctx.lineWidth = 2.0;
-          ctx.stroke();
+            p.prevX = p.x;
+            p.prevY = p.y;
+            p.x += pU * speedMultiplier;
+            p.y -= pV * speedMultiplier; // Subtract because canvas Y is down
+
+            ctx.beginPath();
+            ctx.moveTo(p.prevX, p.prevY);
+            ctx.lineTo(p.x, p.y);
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+          }
         }
 
         p.age++;
@@ -175,50 +173,48 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
     if (!isOpen) setShouldRender(false);
   };
 
-  // Generate 14-day mock historical data
-  const chartData = useMemo(() => {
-    if (!currentData || !currentMetricType) return [];
-    
-    let baseValue = 0;
-    let variance = 0;
-    
-    if (currentMetricType === 'SST') {
-      baseValue = currentData.surface_inputs.SST_celsius;
-      variance = 1.5;
-    } else if (currentMetricType === 'SSS') {
-      baseValue = currentData.surface_inputs.SSS_psu;
-      variance = 0.5;
-    } else if (currentMetricType === 'SSH') {
-      baseValue = currentData.surface_inputs.SSH_meters;
-      variance = 0.2;
-    } else if (currentMetricType === 'Currents') {
-      baseValue = Math.sqrt(Math.pow(currentData.surface_inputs.currents_uv[0], 2) + Math.pow(currentData.surface_inputs.currents_uv[1], 2));
-      variance = 0.3;
-    } else if (currentMetricType === 'Winds') {
-      baseValue = Math.sqrt(Math.pow(currentData.surface_inputs.winds_uv[0], 2) + Math.pow(currentData.surface_inputs.winds_uv[1], 2));
-      variance = 2.0;
-    }
+  const [chartData, setChartData] = useState<{ date: string; value: number }[]>([]);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [chartLoading, setChartLoading] = useState(false);
 
-    const history = [];
-    // Generate past 14 days relative to selectedDate
-    for (let i = 14; i >= 0; i--) {
-      const date = new Date(selectedDate);
-      date.setDate(date.getDate() - i);
-      
-      // Jitter using sine wave + random noise
-      const phase = (i / 14) * Math.PI * 2;
-      const noise = (Math.random() - 0.5) * variance;
-      const wave = Math.sin(phase) * (variance / 2);
-      
-      const val = baseValue + wave + noise;
-      
-      history.push({
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: Number(val.toFixed(2))
+  useEffect(() => {
+    if (!currentData || !currentMetricType || !isOpen) return;
+    
+    setChartLoading(true);
+    setChartError(null);
+    setChartData([]);
+
+    // Format date strictly as YYYY-MM-DD
+    const isoDate = selectedDate.toISOString().split('T')[0];
+    const lat = latRange ? latRange[0] : 0;
+    const lon = lngRange ? lngRange[0] : 0;
+    const metricStr = currentMetricType === 'Currents' || currentMetricType === 'Winds' ? currentMetricType + '_Magnitude' : currentMetricType;
+
+    fetchHistoricalData(lat, lon, isoDate, metricStr)
+      .then((res) => {
+        if (res && res.time_series) {
+           const formatted = res.time_series.map((item: any) => ({
+             date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+             value: item.value
+           }));
+           setChartData(formatted);
+        } else if (Array.isArray(res)) {
+           const formatted = res.map((item: any) => ({
+             date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+             value: item.value
+           }));
+           setChartData(formatted);
+        } else {
+           throw new Error("API payload did not contain a recognized history array.");
+        }
+      })
+      .catch((err) => {
+        setChartError(err.message || 'Failed to fetch historical data from backend.');
+      })
+      .finally(() => {
+        setChartLoading(false);
       });
-    }
-    return history;
-  }, [currentData, currentMetricType, selectedDate]);
+  }, [currentData, currentMetricType, selectedDate, isOpen, latRange, lngRange]);
 
   if (!shouldRender || !currentData || !currentMetricType) return null;
 
@@ -359,7 +355,38 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
             {/* Content */}
             <div style={{ flex: 1, padding: '32px', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
               {effectiveTab === 'magnitude' ? (
-                <ResponsiveContainer width="100%" height="100%">
+                chartLoading ? (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      style={{
+                        width: '32px', height: '32px',
+                        border: '3px solid rgba(255,255,255,0.1)',
+                        borderTopColor: config.color,
+                        borderRadius: '50%'
+                      }}
+                    />
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', letterSpacing: '2px', fontWeight: 500 }}>
+                      FETCHING ARCHIVE...
+                    </span>
+                  </div>
+                ) : chartError ? (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ padding: '24px 32px', background: 'rgba(20, 0, 0, 0.8)', border: '1px solid rgba(255, 50, 50, 0.4)', borderRadius: '16px', maxWidth: '500px', textAlign: 'center' }}>
+                      <h3 style={{ color: '#ff4444', margin: '0 0 12px 0', fontSize: '18px', fontWeight: 600 }}>API Data Error</h3>
+                      <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>{chartError}</p>
+                    </div>
+                  </div>
+                ) : chartData.length === 0 ? (
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ padding: '24px 32px', background: 'rgba(20, 0, 0, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '16px', maxWidth: '500px', textAlign: 'center' }}>
+                      <h3 style={{ color: 'rgba(255,255,255,0.9)', margin: '0 0 12px 0', fontSize: '18px', fontWeight: 600 }}>No Data Available</h3>
+                      <p style={{ color: 'rgba(255,255,255,0.6)', margin: 0, fontSize: '14px', lineHeight: '1.5' }}>The backend API returned an empty dataset for {config.title} in this region and timeframe.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }} style={{ outline: 'none' }}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -401,9 +428,10 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                       activeDot={{ r: 6, fill: config.color, stroke: '#fff', strokeWidth: 2 }}
                     />
                   </AreaChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )
               ) : (
-                <div style={{ flex: 1, position: 'relative', display: 'flex', minHeight: 0, paddingRight: '100px', paddingLeft: '40px' }}>
+                <div style={{ flex: 1, position: 'relative', display: 'flex', minHeight: 0, paddingRight: '40px', paddingLeft: '40px' }}>
                   
                   {/* Canvas Container */}
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0, minWidth: 0 }}>
@@ -443,43 +471,6 @@ const ObservationModal: React.FC<ObservationModalProps> = ({ isOpen, onClose, me
                           borderRadius: '8px'
                         }}
                       />
-                    </div>
-                  </div>
-
-                  {/* Vertical Slider Control */}
-                  <div style={{ position: 'absolute', right: '0', top: '50%', transform: 'translateY(-50%)', height: '100%', maxHeight: '350px', width: '90px', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', background: 'rgba(0,0,0,0.4)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', backdropFilter: 'blur(8px)', zIndex: 10 }}>
-                    <div style={{ color: config.color, fontSize: '15px', fontWeight: 600, marginBottom: '12px', whiteSpace: 'nowrap' }}>
-                      {chartData[timeIndex]?.date || selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </div>
-                    
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '8px', textAlign: 'center', lineHeight: 1.4 }}>
-                      14 Days<br/>Ago
-                    </div>
-                    
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', minHeight: 0 }}>
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="14" 
-                        value={timeIndex}
-                        onChange={(e) => setTimeIndex(Number(e.target.value))}
-                        style={{
-                          writingMode: 'vertical-lr',
-                          WebkitAppearance: 'slider-vertical',
-                          cursor: 'pointer',
-                          accentColor: config.color,
-                          width: '4px',
-                          height: '100%',
-                          background: 'rgba(255,255,255,0.1)',
-                          borderRadius: '2px',
-                          outline: 'none',
-                          margin: 0
-                        }}
-                      />
-                    </div>
-                    
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginTop: '8px', textAlign: 'center', lineHeight: 1.4 }}>
-                      Sel<br/>Date
                     </div>
                   </div>
                 </div>

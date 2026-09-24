@@ -1,19 +1,47 @@
 import React, { useMemo } from 'react';
 import { ComposedChart, Line, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { OceanData } from '../utils/regionalMockData';
+import type { OceanDataResponse } from '../services/api';
 
 interface Props {
-  data: OceanData;
+  data: OceanDataResponse;
 }
 
 const ValidationMetricsDisplay: React.FC<Props> = ({ data }) => {
   const chartData = useMemo(() => {
-    return data.ai_predictions.depths_m.map((depth, idx) => ({
-      depth,
-      predicted: data.ai_predictions.temps_celsius[idx],
-      argo: data.ai_predictions.argo_temps_celsius[idx],
+    return data.ai_predictions.map((pred) => ({
+      depth: pred.depth,
+      predicted: pred.temps_celsius,
+      argo: pred.argo_temps_celsius,
     }));
   }, [data]);
+
+  const hasArgoData = useMemo(() => {
+    return chartData.some(d => d.argo !== null && d.argo !== undefined && !isNaN(d.argo));
+  }, [chartData]);
+
+  const isMockData = useMemo(() => {
+    if (!hasArgoData) return false;
+    // If correlation is perfectly 1, or RMSE is exactly 0, the backend is likely feeding mirrored mock data
+    if (data.validation_metrics.correlation === 1 || data.validation_metrics.RMSE === 0) return true;
+    
+    const validPoints = chartData.filter(d => d.argo !== null && d.argo !== undefined && !isNaN(d.argo));
+    if (validPoints.length > 0 && validPoints.every(d => Math.abs(d.argo! - d.predicted) < 0.001)) {
+      return true;
+    }
+    return false;
+  }, [chartData, hasArgoData, data]);
+
+  if (!hasArgoData || isMockData) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px', padding: '32px' }}>
+        <div style={{ width: '48px', height: '48px', borderRadius: '24px', background: 'rgba(255, 120, 130, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff7882', fontSize: '24px' }}>!</div>
+        <div style={{ color: '#ff7882', fontSize: '16px', fontWeight: '500' }}>Validation Data Unavailable</div>
+        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', textAlign: 'center', maxWidth: '400px', lineHeight: '1.6' }}>
+          No real-time ARGO float telemetry was found in this region for the selected date. The AI Validation Framework requires live in-situ data to compute accuracy metrics and cannot proceed with mock data.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>

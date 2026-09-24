@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useMemo, useRef, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Text, Edges, Billboard } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { OrbitControls, Text, Edges, Billboard, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -10,58 +10,14 @@ interface DepthModalProps {
   isOpen: boolean;
   onClose: () => void;
   predictions?: {
-    depths_m: number[];
-    temps_celsius: number[];
-  };
+    depth: number;
+    temps_celsius: number;
+    temps_grid?: (number | null)[][];
+  }[];
   latRange?: [number, number];
   lngRange?: [number, number];
   searchedLocation?: { lat: number; lon: number } | null;
 }
-
-type LayerSurfaceData = (number | null)[][];
-
-// ─── Task 1: High-Resolution Mock Data Generator ────────────────────────────
-
-/**
- * Generates a 20×20 grid of temperatures representing a 5° area at 0.25° resolution.
- * Uses combined sin/cos wave functions to create realistic spatial variation (±0.3°C).
- */
-const generateLayerSurfaceData = (baseTemp: number, depth: number, lat: number, lng: number, isCoastline: boolean = false): LayerSurfaceData => {
-  const gridSize = 20;
-  const data: LayerSurfaceData = [];
-
-  // Create unique phase shifts based on location and depth
-  const phaseX = (lat * 0.5 + depth * 0.1) % (Math.PI * 2);
-  const phaseY = (lng * 0.5 + depth * 0.15) % (Math.PI * 2);
-
-  for (let y = 0; y < gridSize; y++) {
-    const row: (number | null)[] = [];
-    for (let x = 0; x < gridSize; x++) {
-      // Normalize coordinates to [0, 1]
-      const nx = x / (gridSize - 1);
-      const ny = y / (gridSize - 1);
-
-      // Combined wave function with phase shifts for unique topographical variation
-      const wave1 = Math.sin(nx * Math.PI * 2.5 + phaseX) * Math.cos(ny * Math.PI * 2.0 + phaseY) * 0.15;
-      const wave2 = Math.cos(nx * Math.PI * 1.8 + phaseY) * Math.sin(ny * Math.PI * 3.0 + phaseX) * 0.10;
-      const wave3 = Math.sin((nx + ny) * Math.PI * 1.5 + (phaseX * phaseY)) * 0.05;
-
-      const variation = wave1 + wave2 + wave3;
-      let val: number | null = baseTemp + variation;
-      
-      if (isCoastline) {
-        if (x + y < 12 || (Math.random() < 0.1)) {
-          val = null;
-        }
-      }
-      
-      row.push(val);
-    }
-    data.push(row);
-  }
-
-  return data;
-};
 
 // ─── Color Utilities ─────────────────────────────────────────────────────────
 
@@ -73,337 +29,396 @@ const getColorForTemp = (temp: number): THREE.Color => {
   return colorCold.clone().lerp(colorHot, ratio);
 };
 
-/**
- * Returns a Viridis-like color for fine-grained surface temperature mapping.
- * `t` should be normalized to [0, 1].
- */
+
+
+// ─── Topographic Surface Utils & Components ────────────────────────────────────
+
 const getViridisColor = (t: number): THREE.Color => {
-  const clamped = Math.min(Math.max(t, 0), 1);
-
-  // 5-stop Viridis-inspired palette
+  // A simplified 5-stop Viridis colormap mapping 0..1
   const stops = [
-    { pos: 0.0, color: new THREE.Color('#440154') },   // deep purple
-    { pos: 0.25, color: new THREE.Color('#31688e') },   // teal-blue
-    { pos: 0.5, color: new THREE.Color('#35b779') },    // green
-    { pos: 0.75, color: new THREE.Color('#fde725') },   // yellow
-    { pos: 1.0, color: new THREE.Color('#ffa500') },    // orange (warm)
+    { p: 0.0, c: new THREE.Color('#440154') },
+    { p: 0.25, c: new THREE.Color('#3b528b') },
+    { p: 0.5, c: new THREE.Color('#21918c') },
+    { p: 0.75, c: new THREE.Color('#5ec962') },
+    { p: 1.0, c: new THREE.Color('#fde725') }
   ];
-
+  
+  if (t <= 0) return stops[0].c;
+  if (t >= 1) return stops[4].c;
+  
   for (let i = 0; i < stops.length - 1; i++) {
-    if (clamped >= stops[i].pos && clamped <= stops[i + 1].pos) {
-      const localT = (clamped - stops[i].pos) / (stops[i + 1].pos - stops[i].pos);
-      return stops[i].color.clone().lerp(stops[i + 1].color, localT);
+    if (t >= stops[i].p && t <= stops[i+1].p) {
+      const segmentT = (t - stops[i].p) / (stops[i+1].p - stops[i].p);
+      return stops[i].c.clone().lerp(stops[i+1].c, segmentT);
     }
   }
-
-  return stops[stops.length - 1].color.clone();
+  return stops[4].c;
 };
 
-// ─── Task 3: SurfacePlot Component ──────────────────────────────────────────
-
-// ─── 3D Search Pin Marker ────────────────────────────────────────────────────
-
-interface SearchPinProps {
-  position: [number, number, number];
-  temperature?: number | null;
+interface SurfacePlotProps {
+  layerData: (number | null)[][];
+  baseTemp: number;
+  zScale: number;
+  latRange?: [number, number];
+  lngRange?: [number, number];
+  searchedLocation?: { lat: number; lon: number } | null;
 }
 
-const SearchPin: React.FC<SearchPinProps> = ({ position, temperature }) => {
+const SurfacePlot: React.FC<SurfacePlotProps> = ({ layerData, baseTemp, zScale, latRange, lngRange, searchedLocation }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
 
-  const lineLength = 1.5;
-  const lineRadius = 0.015;
-  const ballRadius = 0.08;
-  const surfaceOffset = 0.02; // Small offset to prevent clipping into the flat triangles
+  const geometry = useMemo(() => {
+    // We expect layerData to be 20x20. We use a plane with 19x19 segments.
+    // The width/height is 5x5 units to fit inside our scene.
+    const size = 5;
+    const gridRes = layerData.length; // usually 20
+    const segments = gridRes - 1; // 19
+    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+
+    // Get position and color attributes
+    const pos = geo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+
+    // Compute min/max temp for accurate viridis normalization
+    let minTemp = Infinity;
+    let maxTemp = -Infinity;
+    for (let i = 0; i < gridRes; i++) {
+      if (!layerData[i]) continue;
+      for (let j = 0; j < layerData[i].length; j++) {
+        const t = layerData[i][j];
+        if (t !== null && t !== undefined) {
+          if (t < minTemp) minTemp = t;
+          if (t > maxTemp) maxTemp = t;
+        }
+      }
+    }
+    
+    // Fallback if data is entirely uniform
+    if (maxTemp === minTemp) {
+      maxTemp = minTemp + 0.1;
+    }
+
+    const midTemp = (minTemp + maxTemp) / 2;
+
+    for (let y = 0; y < gridRes; y++) {
+      if (!layerData[y]) continue;
+      for (let x = 0; x < gridRes; x++) {
+        // PlaneGeometry vertex row 0 is +Y (North), which matches layerData[0]
+        const i = y * gridRes + x; 
+        
+        let t = layerData[y][x];
+        const isLand = (t === null || t === undefined);
+        
+        let zHeight = 0;
+        let vertexColor = new THREE.Color();
+
+        if (isLand) {
+          zHeight = 0;
+          vertexColor = new THREE.Color('#333333'); // Distinct flat gray for landmass
+        } else {
+          zHeight = (t - midTemp) * zScale;
+          const normalized = Math.max(0, Math.min(1, (t - minTemp) / (maxTemp - minTemp)));
+          vertexColor = getViridisColor(normalized);
+        }
+
+        // Apply Z height
+        pos.setZ(i, zHeight);
+        
+        // Apply Color
+        colors[i * 3] = vertexColor.r;
+        colors[i * 3 + 1] = vertexColor.g;
+        colors[i * 3 + 2] = vertexColor.b;
+      }
+    }
+
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
+    return geo;
+  }, [layerData, baseTemp, zScale]);
+
+  const pinData = useMemo(() => {
+    if (!searchedLocation || !latRange || !lngRange) return null;
+    const { lat, lon } = searchedLocation;
+    if (lat < latRange[0] || lat > latRange[1] || lon < lngRange[0] || lon > lngRange[1]) return null;
+    
+    const gridRes = layerData.length;
+    let minTemp = Infinity;
+    let maxTemp = -Infinity;
+    for (let i = 0; i < gridRes; i++) {
+      if (!layerData[i]) continue;
+      for (let j = 0; j < layerData[i].length; j++) {
+        const t = layerData[i][j];
+        if (t !== null && t !== undefined) {
+          if (t < minTemp) minTemp = t;
+          if (t > maxTemp) maxTemp = t;
+        }
+      }
+    }
+    if (maxTemp === minTemp) { maxTemp = minTemp + 0.1; }
+    const midTemp = (minTemp + maxTemp) / 2;
+
+    const size = 5;
+    const x = ((lon - lngRange[0]) / (lngRange[1] - lngRange[0]) - 0.5) * size;
+    const y = ((lat - latRange[0]) / (latRange[1] - latRange[0]) - 0.5) * size;
+
+    const colFloat = ((lon - lngRange[0]) / (lngRange[1] - lngRange[0])) * (gridRes - 1);
+    const rowFloat = ((latRange[1] - lat) / (latRange[1] - latRange[0])) * (gridRes - 1);
+
+    const colFloor = Math.max(0, Math.min(gridRes - 1, Math.floor(colFloat)));
+    const rowFloor = Math.max(0, Math.min(gridRes - 1, Math.floor(rowFloat)));
+    const colCeil = Math.min(gridRes - 1, colFloor + 1);
+    const rowCeil = Math.min(gridRes - 1, rowFloor + 1);
+
+    const u = colFloat - colFloor;
+    const v = rowFloat - rowFloor;
+
+    const t00 = layerData[rowFloor]?.[colFloor] ?? null; // top-left (a)
+    const t10 = layerData[rowFloor]?.[colCeil] ?? null;  // top-right (d)
+    const t01 = layerData[rowCeil]?.[colFloor] ?? null;  // bottom-left (b)
+    const t11 = layerData[rowCeil]?.[colCeil] ?? null;   // bottom-right (c)
+
+    if (t00 === null || t10 === null || t01 === null || t11 === null) return null; // Landmass
+
+    // Three.js PlaneGeometry splits quads into two flat triangles.
+    // The diagonal goes from bottom-left (b) to top-right (d).
+    // u + v <= 1 is the top-left triangle (a, b, d)
+    let exactTemp;
+    if (u + v <= 1) {
+      exactTemp = t00 + u * (t10 - t00) + v * (t01 - t00);
+    } else {
+      // bottom-right triangle (c, d, b)
+      exactTemp = t11 + (1 - u) * (t01 - t11) + (1 - v) * (t10 - t11);
+    }
+
+    const surfaceZ = (exactTemp - midTemp) * zScale;
+    return { x, y, z: surfaceZ, temp: exactTemp };
+  }, [searchedLocation, latRange, lngRange, layerData, zScale]);
 
   return (
-    <group position={[position[0], position[1], position[2] + surfaceOffset]}>
-      {/* Thin white line touching the surface */}
-      <mesh position={[0, 0, lineLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[lineRadius, lineRadius, lineLength, 8]} />
+    <group rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={meshRef} geometry={geometry}>
         <meshStandardMaterial
-          color="#ffffff"
-          emissive="#ffffff"
-          emissiveIntensity={0.5}
+          vertexColors
           roughness={0.2}
-          metalness={0.1}
+          metalness={0.3}
+          side={THREE.DoubleSide}
         />
       </mesh>
-
-      {/* Small red ball on top (Glassy effect) */}
-      <mesh position={[0, 0, lineLength + ballRadius]}>
-        <sphereGeometry args={[ballRadius, 32, 32]} />
-        <meshPhysicalMaterial
-          color="#ff3333"
-          emissive="#ff0000"
-          emissiveIntensity={0.4}
-          roughness={0.05}
-          metalness={0.1}
-          transmission={0.9}
-          thickness={0.5}
-          ior={1.5}
-          clearcoat={1.0}
-          clearcoatRoughness={0.1}
-          transparent
-        />
-      </mesh>
-
-      {/* Temperature Label */}
-      {temperature !== undefined && (
-        <Billboard position={[0.2, 0, lineLength + ballRadius]}>
-          <Text
-            fontSize={0.18}
-            color="#ffffff"
-            fillOpacity={temperature === null ? 0.5 : 1}
-            anchorX="left"
-            anchorY="middle"
-            outlineWidth={0.015}
-            outlineColor="#000000"
-          >
-            {temperature === null ? "No Data (Land)" : `${temperature.toFixed(2)} °C`}
-          </Text>
-        </Billboard>
+      
+      {pinData && (
+        <group position={[pinData.x, pinData.y, pinData.z + 1.5]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.015, 0.015, 3, 8]} />
+            <meshBasicMaterial color="#ffffff" />
+          </mesh>
+          <mesh position={[0, 1.5, 0]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshStandardMaterial color="#ef4444" roughness={0.2} metalness={0.1} />
+          </mesh>
+          <Html position={[0, 1.65, 0]} center>
+            <div style={{
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 500,
+              filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.8))',
+              whiteSpace: 'nowrap'
+            }}>
+              {pinData.temp.toFixed(2)} °C
+            </div>
+          </Html>
+        </group>
       )}
     </group>
   );
 };
 
-interface SurfacePlotProps {
-  layerData: LayerSurfaceData;
-  baseTemp: number;
-  latRange?: [number, number]; // [minLat, maxLat]
-  lngRange?: [number, number]; // [minLng, maxLng]
-  searchedLocation?: { lat: number; lon: number } | null;
-}
+const SurfaceAxes = ({ size = 5, latRange = [10, 15], lngRange = [85, 90] }) => {
+  const half = size / 2;
+  const numSteps = 5;
 
-const SurfacePlot: React.FC<SurfacePlotProps> = ({
-  layerData,
-  baseTemp,
-  latRange = [10, 15],
-  lngRange = [85, 90],
-  searchedLocation,
-}) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const groupRef = useRef<THREE.Group>(null);
-  const userInteractedRef = useRef(false);
-  const { gl } = useThree();
-
-  const gridSize = 20;
-  const segments = gridSize - 1; // 19 segments for 20 vertices
-  const planeSize = 5;
-  const zScale = 5; // Exaggeration factor for tiny temp variations
-
-  // Stop auto-rotation when the user interacts
-  const handleInteraction = useCallback(() => {
-    userInteractedRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    const canvas = gl.domElement;
-    canvas.addEventListener('pointerdown', handleInteraction);
-    canvas.addEventListener('wheel', handleInteraction);
-    return () => {
-      canvas.removeEventListener('pointerdown', handleInteraction);
-      canvas.removeEventListener('wheel', handleInteraction);
-    };
-  }, [gl, handleInteraction]);
-
-  // Compute min/max for color normalization
-  const { minTemp, maxTemp } = useMemo(() => {
-    let min = Infinity;
-    let max = -Infinity;
-    for (let y = 0; y < gridSize; y++) {
-      for (let x = 0; x < gridSize; x++) {
-        const t = layerData[y][x];
-        if (t !== null) {
-          if (t < min) min = t;
-          if (t > max) max = t;
-        }
-      }
-    }
-    return { minTemp: min === Infinity ? baseTemp : min, maxTemp: max === -Infinity ? baseTemp : max };
-  }, [layerData, baseTemp]);
-
-  // Build geometry attributes
-  const { positions, colors } = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(planeSize, planeSize, segments, segments);
-    const posArray = geo.attributes.position.array as Float32Array;
-    const colorArray = new Float32Array(posArray.length); // RGB per vertex
-
-    const tempRange = maxTemp - minTemp || 1;
-
-    for (let iy = 0; iy < gridSize; iy++) {
-      for (let ix = 0; ix < gridSize; ix++) {
-        const vertexIndex = iy * gridSize + ix;
-        const temp = layerData[iy][ix];
-
-        if (temp === null) {
-          // Average height of nearest non-null neighbors
-          let sum = 0;
-          let count = 0;
-          const searchRadius = 3;
-          for (let r = 1; r <= searchRadius; r++) {
-            for (let dy = -r; dy <= r; dy++) {
-              for (let dx = -r; dx <= r; dx++) {
-                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-                const ny = iy + dy;
-                const nx = ix + dx;
-                if (ny >= 0 && ny < gridSize && nx >= 0 && nx < gridSize) {
-                  const neighborTemp = layerData[ny][nx];
-                  if (neighborTemp !== null) {
-                    sum += neighborTemp;
-                    count++;
-                  }
-                }
-              }
-            }
-            if (count > 0) break;
-          }
-          const avgTemp = count > 0 ? sum / count : baseTemp;
-          
-          posArray[vertexIndex * 3 + 2] = (avgTemp - baseTemp) * zScale;
-          
-          colorArray[vertexIndex * 3 + 0] = 0.5;
-          colorArray[vertexIndex * 3 + 1] = 0.5;
-          colorArray[vertexIndex * 3 + 2] = 0.5;
-        } else {
-          // Modify Z (index 2) — PlaneGeometry lies on XY, Z is the "up" axis
-          posArray[vertexIndex * 3 + 2] = (temp - baseTemp) * zScale;
-
-          // Color
-          const normalizedT = tempRange > 0 ? (temp - minTemp) / tempRange : 0.5;
-          const color = getViridisColor(normalizedT);
-          colorArray[vertexIndex * 3 + 0] = color.r;
-          colorArray[vertexIndex * 3 + 1] = color.g;
-          colorArray[vertexIndex * 3 + 2] = color.b;
-        }
-      }
-    }
-
-    geo.dispose();
-
-    return {
-      positions: new Float32Array(posArray),
-      colors: colorArray,
-    };
-  }, [layerData, baseTemp, minTemp, maxTemp]);
-
-  // Apply geometry modifications
-  useEffect(() => {
-    if (!meshRef.current) return;
-
-    const geo = meshRef.current.geometry as THREE.PlaneGeometry;
-    const posAttr = geo.attributes.position as THREE.BufferAttribute;
-
-    for (let i = 0; i < positions.length; i++) {
-      (posAttr.array as Float32Array)[i] = positions[i];
-    }
-    posAttr.needsUpdate = true;
-
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geo.computeVertexNormals();
-  }, [positions, colors]);
-
-  // Gentle spin animation — stops when user interacts
-  useFrame((_, delta) => {
-    if (groupRef.current && !userInteractedRef.current) {
-      groupRef.current.rotation.z += delta * 0.08;
-    }
-  });
+  const latStep = (latRange[1] - latRange[0]) / numSteps;
+  const lngStep = (lngRange[1] - lngRange[0]) / numSteps;
 
   return (
-    <group ref={groupRef} rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh ref={meshRef}>
-        <planeGeometry args={[planeSize, planeSize, segments, segments]} />
-        <meshStandardMaterial
-          vertexColors
-          side={THREE.DoubleSide}
-          roughness={0.4}
-          metalness={0.1}
-          flatShading={false}
-        />
-      </mesh>
+    <group rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Base Grid at Z=0 (mid-temp height) */}
+      <gridHelper 
+        args={[size, 20, 0xffffff, 0xffffff]} 
+        position={[0, 0, 0]} 
+        rotation={[Math.PI / 2, 0, 0]}
+        material-opacity={0.15} 
+        material-transparent 
+      />
 
-      {/* Wireframe overlay for depth perception */}
-      <mesh>
-        <planeGeometry args={[planeSize, planeSize, segments, segments]} />
-        <meshBasicMaterial
-          wireframe
-          color="#ffffff"
-          transparent
-          opacity={0.06}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Longitude labels along the X-axis (front edge) */}
-      {Array.from({ length: 6 }, (_, i) => {
-        const t = i / 5; // 0 to 1
-        const xPos = -planeSize / 2 + t * planeSize;
-        const lng = lngRange[0] + t * (lngRange[1] - lngRange[0]);
+      {/* Latitude Labels (Left Edge) */}
+      {Array.from({ length: numSteps + 1 }).map((_, i) => {
+        const yPos = half - (i * (size / numSteps));
+        const val = latRange[1] - (i * latStep);
         return (
-          <Billboard key={`lng-${i}`} position={[xPos, -planeSize / 2 - 0.35, 0]}>
-            <Text fontSize={0.18} color="#ffffff" fillOpacity={0.6} anchorX="center" anchorY="top">
-              {`${lng.toFixed(1)}°E`}
-            </Text>
-          </Billboard>
+          <Text
+            key={`lat-${i}`}
+            position={[-half - 0.4, yPos, 0]}
+            fontSize={0.15}
+            color="rgba(255, 255, 255, 0.8)"
+            anchorX="right"
+            anchorY="middle"
+          >
+            {val.toFixed(1)}°N
+          </Text>
         );
       })}
 
-      {/* Latitude labels along the Y-axis (left edge) */}
-      {Array.from({ length: 6 }, (_, i) => {
-        const t = i / 5; // 0 to 1
-        const yPos = -planeSize / 2 + t * planeSize;
-        const lat = latRange[0] + t * (latRange[1] - latRange[0]);
+      {/* Longitude Labels (Bottom Edge) */}
+      {Array.from({ length: numSteps + 1 }).map((_, i) => {
+        const xPos = -half + (i * (size / numSteps));
+        const val = lngRange[0] + (i * lngStep);
         return (
-          <Billboard key={`lat-${i}`} position={[-planeSize / 2 - 0.35, yPos, 0]}>
-            <Text fontSize={0.18} color="#ffffff" fillOpacity={0.6} anchorX="right" anchorY="middle">
-              {`${lat.toFixed(1)}°N`}
-            </Text>
-          </Billboard>
+          <Text
+            key={`lng-${i}`}
+            position={[xPos, -half - 0.4, 0]}
+            fontSize={0.15}
+            color="rgba(255, 255, 255, 0.8)"
+            anchorX="center"
+            anchorY="top"
+          >
+            {val.toFixed(1)}°E
+          </Text>
         );
       })}
-
-      {/* ── Searched Location 3D Marker ── */}
-      {searchedLocation && (() => {
-        const normLat = (searchedLocation.lat - latRange[0]) / (latRange[1] - latRange[0]);
-        const normLon = (searchedLocation.lon - lngRange[0]) / (lngRange[1] - lngRange[0]);
-
-        // Clamp to valid range
-        if (normLat < 0 || normLat > 1 || normLon < 0 || normLon > 1) return null;
-
-        // Map to local mesh coordinates
-        const localX = (normLon - 0.5) * planeSize;
-        const localY = (normLat - 0.5) * planeSize;
-
-        // Bilinear interpolation to find Z height
-        const gridSize = 20;
-        const gx = normLon * (gridSize - 1);
-        const gy = (1 - normLat) * (gridSize - 1);
-        const ix = Math.min(Math.floor(gx), gridSize - 2);
-        const iy = Math.min(Math.floor(gy), gridSize - 2);
-        const fx = gx - ix;
-        const fy = gy - iy;
-
-        const raw00 = layerData[iy]?.[ix];
-        const raw10 = layerData[iy]?.[ix + 1];
-        const raw01 = layerData[iy + 1]?.[ix];
-        const raw11 = layerData[iy + 1]?.[ix + 1];
-
-        const isLand = raw00 === null && raw10 === null && raw01 === null && raw11 === null;
-
-        const getVal = (v: number | null | undefined) => v !== null && v !== undefined ? v : baseTemp;
-
-        const v00 = getVal(raw00);
-        const v10 = getVal(raw10);
-        const v01 = getVal(raw01);
-        const v11 = getVal(raw11);
-
-        const interpTemp = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
-        const zHeight = (interpTemp - baseTemp) * zScale;
-
-        return <SearchPin position={[localX, localY, zHeight]} temperature={isLand ? null : interpTemp} />;
-      })()}
     </group>
+  );
+};
+
+const SurfaceColorbar = () => (
+  <div style={{
+    position: 'absolute', right: '32px', top: '50%', transform: 'translateY(-50%)',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+    background: 'rgba(0, 0, 0, 0.4)', padding: '16px 12px', borderRadius: '16px',
+    border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)', pointerEvents: 'none'
+  }}>
+    <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>High</span>
+    <div style={{
+      width: '12px', height: '180px',
+      background: 'linear-gradient(to bottom, #fde725, #5ec962, #21918c, #3b528b, #440154)',
+      borderRadius: '6px', boxShadow: 'inset 0 0 4px rgba(0,0,0,0.5)'
+    }} />
+    <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>Low</span>
+    <span style={{ color: '#8bb6d6', fontSize: '11px', marginTop: '4px', letterSpacing: '0.5px', fontWeight: 500 }}>TEMP</span>
+  </div>
+);
+
+const SurfaceInfoOverlay = ({ depth, baseTemp }: { depth: number; baseTemp: number }) => (
+  <div style={{
+    position: 'absolute', left: '32px', bottom: '32px',
+    background: 'rgba(20, 0, 0, 0.6)', padding: '16px', borderRadius: '12px',
+    border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(8px)', pointerEvents: 'none'
+  }}>
+    <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#fff', letterSpacing: '1px', textTransform: 'uppercase' }}>
+      Topographic Surface at {depth}m
+    </h3>
+    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Grid Res:</span> 20x20 (0.25° cells)</div>
+      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Base Temp:</span> {baseTemp.toFixed(1)}°C</div>
+      <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Null Handling:</span> Landmass Flattening</div>
+    </div>
+  </div>
+);
+
+const SurfaceZScaleSlider = ({ zScale, setZScale }: { zScale: number; setZScale: (val: number) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(zScale.toString());
+
+  const handleBlurOrSubmit = () => {
+    setIsEditing(false);
+    const parsed = parseFloat(inputValue);
+    if (!isNaN(parsed) && parsed > 0) {
+      setZScale(parsed);
+    } else {
+      setInputValue(zScale.toFixed(1));
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'absolute', left: '32px', top: '50%', transform: 'translateY(-50%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
+      background: 'rgba(10, 15, 25, 0.6)', padding: '12px 8px', borderRadius: '12px',
+      border: '1px solid rgba(139, 182, 214, 0.2)', backdropFilter: 'blur(12px)',
+      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)'
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Z-Scale</span>
+        {isEditing ? (
+          <input
+            type="text"
+            autoFocus
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            onBlur={handleBlurOrSubmit}
+            onKeyDown={(e) => e.key === 'Enter' && handleBlurOrSubmit()}
+            style={{
+              width: '32px',
+              background: 'rgba(0,0,0,0.5)',
+              border: '1px solid #8bb6d6',
+              borderRadius: '4px',
+              color: '#fff',
+              fontSize: '11px',
+              textAlign: 'center',
+              outline: 'none',
+              padding: '2px 0'
+            }}
+          />
+        ) : (
+          <span 
+            onClick={() => { setIsEditing(true); setInputValue(zScale.toFixed(1)); }}
+            style={{ color: '#8bb6d6', fontSize: '13px', fontWeight: 700, cursor: 'text' }}
+          >
+            {zScale.toFixed(1)}x
+          </span>
+        )}
+      </div>
+    
+    <div style={{ position: 'relative', width: '20px', height: '140px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <style>{`
+        .sleek-slider {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 120px;
+          height: 3px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+          outline: none;
+          transform: rotate(-90deg);
+          cursor: pointer;
+        }
+        .sleek-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #8bb6d6;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 0 10px rgba(139, 182, 214, 0.5);
+        }
+        .sleek-slider::-webkit-slider-thumb:hover {
+          transform: scale(1.3);
+          box-shadow: 0 0 15px rgba(139, 182, 214, 0.8);
+        }
+      `}</style>
+      <input
+        type="range"
+        min="0.1"
+        max="5.0"
+        step="0.1"
+        value={zScale}
+        onChange={(e) => setZScale(parseFloat(e.target.value))}
+        className="sleek-slider"
+      />
+    </div>
+  </div>
   );
 };
 
@@ -579,108 +594,7 @@ const Layer: React.FC<LayerProps> = ({ depth, temp, onClick }) => {
   );
 };
 
-// ─── Surface View Info Panel ─────────────────────────────────────────────────
 
-interface SurfaceInfoProps {
-  depth: number;
-  baseTemp: number;
-  layerData: LayerSurfaceData;
-}
-
-const SurfaceInfoOverlay: React.FC<SurfaceInfoProps> = ({ depth, baseTemp, layerData }) => {
-  const { minTemp, maxTemp } = useMemo(() => {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const row of layerData) {
-      for (const t of row) {
-        if (t !== null) {
-          if (t < min) min = t;
-          if (t > max) max = t;
-        }
-      }
-    }
-    return { minTemp: min === Infinity ? baseTemp : min, maxTemp: max === -Infinity ? baseTemp : max };
-  }, [layerData, baseTemp]);
-
-  return (
-    <div style={{
-      position: 'absolute',
-      left: '24px',
-      bottom: '24px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-      background: 'rgba(0, 0, 0, 0.5)',
-      padding: '16px 20px',
-      borderRadius: '16px',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-      backdropFilter: 'blur(8px)',
-      pointerEvents: 'none',
-      minWidth: '240px',
-      maxWidth: '300px',
-    }}>
-      <span style={{ color: '#8bb6d6', fontSize: '11px', letterSpacing: '1px', fontWeight: 600, textTransform: 'uppercase' }}>
-        Layer Detail
-      </span>
-      <span style={{ color: '#fff', fontSize: '16px', fontWeight: 600 }}>
-        {depth}m depth
-      </span>
-      <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>Base Temp</span>
-        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>{baseTemp.toFixed(2)}°C</span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>Range</span>
-        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>
-          {minTemp.toFixed(2)} – {maxTemp.toFixed(2)}°C
-        </span>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>Resolution</span>
-        <span style={{ color: '#fff', fontWeight: 500, textAlign: 'right' }}>0.25° (20×20)</span>
-      </div>
-    </div>
-  );
-};
-
-// ─── Surface Colorbar ────────────────────────────────────────────────────────
-
-const SurfaceColorbar: React.FC<{ minTemp: number; maxTemp: number }> = ({ minTemp, maxTemp }) => (
-  <div style={{
-    position: 'absolute',
-    right: '32px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    background: 'rgba(0, 0, 0, 0.4)',
-    padding: '16px 12px',
-    borderRadius: '16px',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    backdropFilter: 'blur(4px)',
-    pointerEvents: 'none'
-  }}>
-    <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>
-      {maxTemp.toFixed(2)}°C
-    </span>
-    <div style={{
-      width: '12px',
-      height: '180px',
-      background: 'linear-gradient(to bottom, #ffa500, #fde725, #35b779, #31688e, #440154)',
-      borderRadius: '6px',
-      boxShadow: 'inset 0 0 4px rgba(0,0,0,0.5)'
-    }} />
-    <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>
-      {minTemp.toFixed(2)}°C
-    </span>
-    <span style={{ color: '#8bb6d6', fontSize: '11px', marginTop: '4px', letterSpacing: '0.5px', fontWeight: 500 }}>
-      TEMP
-    </span>
-  </div>
-);
 
 // ─── Raycast Fixer ─────────────────────────────────────────────────────────────
 // Fixes R3F raycasting offset when CSS 100% scaling overrides the internal buffer size
@@ -721,15 +635,10 @@ const RaycastFixer = () => {
 
 const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange, searchedLocation }) => {
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
-
-  const [surfaceData, setSurfaceData] = useState<{
-    layerData: LayerSurfaceData;
-    baseTemp: number;
-    depth: number;
-  } | null>(null);
-
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(isOpen);
+  const [zScale, setZScale] = useState(2.5);
+  const [autoRotate, setAutoRotate] = useState(true);
+  const backdropPointerDown = useRef(false);
 
   // Sync state with isOpen prop to prevent 1-frame flash
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
@@ -737,10 +646,9 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     setPrevIsOpen(isOpen);
     if (isOpen) {
       setIsProfileLoading(true);
+      setAutoRotate(true);
     } else {
       setSelectedLayer(null);
-      setSurfaceData(null);
-      setIsGenerating(false);
       setIsProfileLoading(false);
     }
   }
@@ -754,65 +662,22 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
     }
   }, [isOpen]);
 
-  const latStart = latRange?.[0];
-  const lngStart = lngRange?.[0];
-
-  useEffect(() => {
-    if (selectedLayer === null || !predictions) {
-      return;
-    }
-
-    const layerIndex = predictions.depths_m.indexOf(selectedLayer);
-    if (layerIndex === -1) {
-      setIsGenerating(false);
-      return;
-    }
-
-    const baseTemp = predictions.temps_celsius[layerIndex];
-    const lat = latStart ?? 0;
-    const lng = lngStart ?? 0;
-    
-    const isCoastline = (latStart !== undefined && lngStart !== undefined) 
-      ? (latStart === 15 && lngStart === 80) || (latStart === 10 && lngStart === 75) || (latStart === 20 && lngStart === 85) || (latStart === 15 && lngStart === 85)
-      : false;
-      
-    const layerData = generateLayerSurfaceData(baseTemp, selectedLayer, lat, lng, isCoastline);
-
-    const timer = setTimeout(() => {
-      setSurfaceData({ layerData, baseTemp, depth: selectedLayer });
-      setIsGenerating(false);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [selectedLayer, predictions, latStart, lngStart]);
-
   const handleLayerClick = (depth: number) => {
     setSelectedLayer(depth);
-    setIsGenerating(true);
+    setAutoRotate(true);
   };
 
   const handleBack = () => {
     setSelectedLayer(null);
-    setSurfaceData(null);
-    setIsGenerating(false);
   };
 
-  const surfaceMinMax = useMemo(() => {
-    if (!surfaceData) return { min: 0, max: 1 };
-    let min = Infinity;
-    let max = -Infinity;
-    for (const row of surfaceData.layerData) {
-      for (const t of row) {
-        if (t !== null) {
-          if (t < min) min = t;
-          if (t > max) max = t;
-        }
-      }
-    }
-    return { min: min === Infinity ? surfaceData.baseTemp : min, max: max === -Infinity ? surfaceData.baseTemp : max };
-  }, [surfaceData]);
-
-  const isSurfaceView = selectedLayer !== null && surfaceData !== null;
+  const isSurfaceView = selectedLayer !== null;
+  const selectedLayerData = useMemo(() => {
+    if (!predictions || selectedLayer === null) return null;
+    return predictions.find((p) => p.depth === selectedLayer) || null;
+  }, [predictions, selectedLayer]);
+  
+  const hasValidGrid = selectedLayerData?.temps_grid && selectedLayerData.temps_grid.length > 0;
 
   return (
     <AnimatePresence>
@@ -833,7 +698,17 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
             zIndex: 100,
             paddingRight: '350px'
           }}
-          onClick={onClose}
+          onPointerDown={(e) => {
+            if (e.target === e.currentTarget) {
+              backdropPointerDown.current = true;
+            }
+          }}
+          onPointerUp={(e) => {
+            if (backdropPointerDown.current && e.target === e.currentTarget) {
+              onClose();
+            }
+            backdropPointerDown.current = false;
+          }}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -893,7 +768,7 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
 
                 <h2 style={{ margin: 0, fontSize: '20px', color: '#8bb6d6', fontWeight: 500 }}>
                   {isSurfaceView
-                    ? `Thermocline Surface — ${surfaceData.depth}m`
+                    ? `Thermocline Surface — ${selectedLayer}m`
                     : 'Subsurface 3D Profile'
                   }
                 </h2>
@@ -938,84 +813,99 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                     `}</style>
                   </motion.div>
-                ) : isGenerating ? (
+                ) : (!predictions || predictions.length === 0) ? (
+                  /* ── Error Barrier View for Missing Profile Data ── */
                   <motion.div
-                    key="loader"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}
-                  >
-                    <div style={{
-                      width: '40px', height: '40px',
-                      borderRadius: '50%',
-                      border: '3px solid rgba(139, 182, 214, 0.2)',
-                      borderTopColor: '#8bb6d6',
-                      animation: 'spin 1s linear infinite'
-                    }} />
-                    <span style={{ color: '#8bb6d6', fontSize: '13px', fontWeight: 500, letterSpacing: '1px' }}>
-                      RENDERING THERMOCLINE SURFACE...
-                    </span>
-                    <style>{`
-                      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                    `}</style>
-                  </motion.div>
-                ) : isSurfaceView ? (
-                  /* ── Surface Plot View ── */
-                  <motion.div
-                    key="surface-view"
+                    key="profile-error"
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.35, ease: 'easeInOut' }}
-                    style={{ position: 'absolute', inset: 0 }}
+                    style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', textAlign: 'center', background: 'rgba(255, 0, 0, 0.05)' }}
                   >
-                    <Canvas style={{ width: '100%', height: '100%' }} camera={{ position: [5, 5, 5], fov: 50 }}>
-                      <RaycastFixer />
-                      <ambientLight intensity={0.5} />
-                      <directionalLight position={[10, 10, 5]} intensity={1.5} />
-                      <pointLight position={[-5, 5, -5]} color="#35b779" intensity={0.8} />
-                      <spotLight position={[0, 8, 0]} angle={0.6} penumbra={1} intensity={1} />
-                      <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
-                      <Suspense fallback={null}>
-                        <SurfacePlot
-                          layerData={surfaceData.layerData}
-                          baseTemp={surfaceData.baseTemp}
-                          latRange={latRange || [10, 15]}
-                          lngRange={lngRange || [85, 90]}
-                          searchedLocation={searchedLocation}
-                        />
-                      </Suspense>
-                    </Canvas>
-
-                    {/* Surface info overlay */}
-                    <SurfaceInfoOverlay
-                      depth={surfaceData.depth}
-                      baseTemp={surfaceData.baseTemp}
-                      layerData={surfaceData.layerData}
-                    />
-
-                    {/* Surface colorbar */}
-                    <SurfaceColorbar minTemp={surfaceMinMax.min} maxTemp={surfaceMinMax.max} />
-
-                    {/* Click hint */}
                     <div style={{
-                      position: 'absolute',
-                      top: '16px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: 'rgba(0, 0, 0, 0.4)',
-                      padding: '8px 16px',
-                      borderRadius: '20px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      backdropFilter: 'blur(4px)',
-                      pointerEvents: 'none',
+                      padding: '24px 32px',
+                      background: 'rgba(20, 0, 0, 0.8)',
+                      border: '1px solid rgba(255, 50, 50, 0.4)',
+                      borderRadius: '16px',
+                      boxShadow: '0 10px 30px -10px rgba(255,0,0,0.3)',
+                      maxWidth: '500px',
                     }}>
-                      <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>
-                        Drag to orbit • Scroll to zoom • Z-axis exaggerated ×5
-                      </span>
+                      <h3 style={{ color: '#ff4444', margin: '0 0 16px 0', fontSize: '20px', fontWeight: 600 }}>Data Unavailable</h3>
+                      <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '15px', lineHeight: '1.6' }}>
+                        Subsurface profile data is not available for this location.
+                        <br /><br />
+                        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>The mock engine has been permanently removed per architectural guidelines.</span>
+                      </p>
                     </div>
                   </motion.div>
+                ) : isSurfaceView ? (
+                  !hasValidGrid ? (
+                    /* ── Error Barrier View for Missing Grid ── */
+                    <motion.div
+                      key="surface-error"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.35, ease: 'easeInOut' }}
+                      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', textAlign: 'center', background: 'rgba(255, 0, 0, 0.05)' }}
+                    >
+                      <div style={{
+                        padding: '24px 32px',
+                        background: 'rgba(20, 0, 0, 0.8)',
+                        border: '1px solid rgba(255, 50, 50, 0.4)',
+                        borderRadius: '16px',
+                        boxShadow: '0 10px 30px -10px rgba(255,0,0,0.3)',
+                        maxWidth: '500px',
+                      }}>
+                        <h3 style={{ color: '#ff4444', margin: '0 0 16px 0', fontSize: '20px', fontWeight: 600 }}>Data Unavailable</h3>
+                        <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '15px', lineHeight: '1.6' }}>
+                          High-resolution spatial temperature grids for depth layers are not provided by the current backend API payload.
+                          <br /><br />
+                          <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>The mock engine has been permanently removed per architectural guidelines.</span>
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    /* ── Topographic Surface View ── */
+                    <motion.div
+                      key="topographic-view"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.35, ease: 'easeInOut' }}
+                      style={{ position: 'absolute', inset: 0 }}
+                    >
+                      <Canvas style={{ width: '100%', height: '100%' }} camera={{ position: [5, 4, 5], fov: 50 }}>
+                        <RaycastFixer />
+                        <ambientLight intensity={0.4} />
+                        <directionalLight position={[10, 10, 5]} intensity={1.5} />
+                        <pointLight position={[-10, -10, -10]} color="#4b0082" intensity={2} />
+                        <OrbitControls 
+                          makeDefault 
+                          enableDamping 
+                          dampingFactor={0.05} 
+                          autoRotate={autoRotate}
+                          autoRotateSpeed={1.0}
+                          onStart={() => setAutoRotate(false)}
+                        />
+                        <Suspense fallback={null}>
+                          <SurfacePlot 
+                            layerData={selectedLayerData!.temps_grid!} 
+                            baseTemp={selectedLayerData!.temps_celsius} 
+                            zScale={zScale}
+                            latRange={latRange}
+                            lngRange={lngRange}
+                            searchedLocation={searchedLocation}
+                          />
+                          <SurfaceAxes size={5} latRange={latRange} lngRange={lngRange} />
+                        </Suspense>
+                      </Canvas>
+                      <SurfaceColorbar />
+                      <SurfaceZScaleSlider zScale={zScale} setZScale={setZScale} />
+                      <SurfaceInfoOverlay depth={selectedLayer!} baseTemp={selectedLayerData!.temps_celsius} />
+                    </motion.div>
+                  )
                 ) : (
                   /* ── Stacked Planes View ── */
                   <motion.div
@@ -1035,13 +925,13 @@ const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, l
                       <OrbitControls makeDefault enableDamping dampingFactor={0.05} />
                       <Suspense fallback={null}>
                         <group position={[-1.5, 0, 0]}>
-                          {predictions?.depths_m.map((depth, index) => (
+                          {predictions?.map((pred, index) => (
                             <Layer
-                              key={depth}
-                              depth={depth}
-                              temp={predictions.temps_celsius[index]}
+                              key={pred.depth}
+                              depth={pred.depth}
+                              temp={pred.temps_celsius}
                               index={index}
-                              onClick={() => handleLayerClick(depth)}
+                              onClick={() => handleLayerClick(pred.depth)}
                             />
                           ))}
                         </group>

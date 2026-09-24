@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { OceanData } from '../utils/regionalMockData';
+import type { OceanDataResponse } from '../services/api';
 import ValidationMetricsDisplay from './ValidationMetricsDisplay';
 
 interface ValidationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: OceanData | null;
+  data: OceanDataResponse | null;
   latRange?: [number, number];
   lngRange?: [number, number];
 }

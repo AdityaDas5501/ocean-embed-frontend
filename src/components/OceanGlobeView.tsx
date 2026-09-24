@@ -10,8 +10,9 @@ const ValidationModal = lazy(() => import('./ValidationModal'));
 const ObservationModal = lazy(() => import('./ObservationModal'));
 import CoordinateSearch from './CoordinateSearch';
 import DateStepper from './DateStepper';
-import { regionalMockData, formatDateKey } from '../utils/regionalMockData';
-import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, Calendar } from 'lucide-react';
+import { fetchOceanProfile, fetchOceanTask, formatDateKey, NetworkError, ApiDataError, checkBackendHealth } from '../services/api';
+import type { OceanDataResponse, OceanTaskResponse } from '../services/api';
+import { Target, ThermometerSun, Droplets, Waves, Navigation, Wind, Calendar, WifiOff, RefreshCw } from 'lucide-react';
 import LoadingBg from '../assets/images/Loading-Background.webp';
 import Logo from '../assets/logo.svg';
 
@@ -67,7 +68,115 @@ const OceanGlobeView: React.FC = () => {
   const searchedLocationRef = useRef<{ lat: number; lon: number } | null>(null);
   const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
   const [activeObservation, setActiveObservation] = useState<'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds' | null>(null);
-  const [selectedDate, setSelectedDate] = useState(() => new Date('2026-09-20T00:00:00'));
+  const [selectedDate, setSelectedDate] = useState(() => new Date('2024-12-15T00:00:00'));
+
+  // ── Live API state ─────────────────────────────────────────────────────────
+  const [oceanData, setOceanData] = useState<OceanDataResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollProgress, setPollProgress] = useState(0);
+  const [fetchError, setFetchError] = useState<{ type: 'network' | 'no-data'; message: string } | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const triggerFetch = useCallback((lat: number, lon: number, date: Date) => {
+    // Cancel any previous in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsLoading(true);
+    setIsPolling(false);
+    setPollProgress(0);
+    setOceanData(null);
+    setFetchError(null);
+
+    fetchOceanProfile(lat, lon, formatDateKey(date), controller.signal)
+      .then((data) => {
+        if ('task_id' in data) {
+          // Setup polling
+          setIsPolling(true);
+          setPollProgress(data.progress || 0);
+
+          const pollInterval = setInterval(() => {
+            fetchOceanTask(data.task_id, lat, lon, formatDateKey(date), controller.signal)
+              .then((taskData) => {
+                if (abortControllerRef.current !== controller) {
+                  clearInterval(pollInterval);
+                  return;
+                }
+                setPollProgress(taskData.progress || 0);
+                if (taskData.status === 'completed' && taskData.result) {
+                  clearInterval(pollInterval);
+                  setPollProgress(100);
+                  setTimeout(() => {
+                    if (abortControllerRef.current !== controller) return;
+                    // Safely cast to prevent TS closure complaints
+                    setOceanData(taskData.result as any);
+                    setIsPolling(false);
+                    setIsLoading(false);
+                  }, 600);
+                } else if (taskData.status === 'failed') {
+                  clearInterval(pollInterval);
+                  setFetchError({ type: 'network', message: 'Task processing failed on the server.' });
+                  setIsPolling(false);
+                  setIsLoading(false);
+                }
+              })
+              .catch((err) => {
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                  clearInterval(pollInterval);
+                  return;
+                }
+                clearInterval(pollInterval);
+                setFetchError({ type: 'network', message: 'Polling connection failed.' });
+                setIsPolling(false);
+                setIsLoading(false);
+              });
+          }, 1000);
+
+          // Cleanup pollInterval on abort
+          controller.signal.addEventListener('abort', () => clearInterval(pollInterval));
+        } else {
+          // Data is already cached and returned instantly
+          setOceanData(data as OceanDataResponse);
+          setIsLoading(false);
+          setFetchError(null);
+        }
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return; // deliberate cancel
+        setIsLoading(false);
+        setIsPolling(false);
+        if (err instanceof NetworkError) {
+          setFetchError({ type: 'network', message: err.message });
+        } else if (err instanceof ApiDataError) {
+          setFetchError({ type: 'no-data', message: err.message });
+        } else {
+          setFetchError({ type: 'network', message: 'An unexpected error occurred.' });
+        }
+      });
+  }, []);
+
+  // Trigger fetch whenever the clicked cell or selected date changes
+  useEffect(() => {
+    if (!clickedCell || !focusedRegion) {
+      setOceanData(null);
+      setFetchError(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      triggerFetch(clickedCell.minLat, clickedCell.minLng, selectedDate);
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clickedCell, selectedDate]);
 
   useEffect(() => {
     searchedLocationRef.current = searchedLocation;
@@ -103,6 +212,17 @@ const OceanGlobeView: React.FC = () => {
   const [showLoading, setShowLoading] = useState(true);
   const [fadeOutLoading, setFadeOutLoading] = useState(false);
   const [introFinished, setIntroFinished] = useState(false);
+  const [backendHealthy, setBackendHealthy] = useState<boolean | null>(null);
+
+  const checkHealth = useCallback(async () => {
+    setBackendHealthy(null);
+    const healthy = await checkBackendHealth();
+    setBackendHealthy(healthy);
+  }, []);
+
+  useEffect(() => {
+    checkHealth();
+  }, [checkHealth]);
 
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
@@ -179,7 +299,7 @@ const OceanGlobeView: React.FC = () => {
     setIsBgLoaded(true);
   }, []);
 
-  const isFullyLoaded = isGlobeReady && isMapDataLoaded && isBgLoaded;
+  const isFullyLoaded = isGlobeReady && isMapDataLoaded && isBgLoaded && backendHealthy === true;
 
   useEffect(() => {
     if (isFullyLoaded) {
@@ -832,11 +952,13 @@ const OceanGlobeView: React.FC = () => {
             }
           }}
         >
+          {/* ── Sidebar Header ───────────────────────────────────────────────── */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '500', letterSpacing: '0.5px' }}>
-              {regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]
-                ? 'Ocean State Profile'
-                : 'Landmass Detected'}
+              {isLoading ? 'Fetching Profile…' :
+                fetchError?.type === 'network' ? 'Backend Unreachable' :
+                fetchError?.type === 'no-data' ? 'No Data Available' :
+                oceanData ? 'Ocean State Profile' : 'Ocean State Profile'}
             </h3>
             <button
               onClick={() => {
@@ -863,12 +985,10 @@ const OceanGlobeView: React.FC = () => {
               ✕
             </button>
           </div>
-          {(() => {
-            const coordKey = `${clickedCell.minLat},${clickedCell.minLng}`;
-            const coordData = regionalMockData[coordKey];
-            const cellData = coordData?.[formatDateKey(selectedDate)];
-            return (
+
+          {/* ── Sidebar Body ─────────────────────────────────────────────────── */}
           <div style={{ fontSize: '13px', fontWeight: '300', lineHeight: '1.8', color: 'rgba(255,255,255,0.65)', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Coordinate header */}
             {searchedLocation ? (
               <>
                 <div><span style={{ color: 'rgba(255,255,255,0.4)' }}>Latitude:</span> {(Math.round(searchedLocation.lat / 0.25) * 0.25).toFixed(2)}°N</div>
@@ -881,21 +1001,148 @@ const OceanGlobeView: React.FC = () => {
               </>
             )}
 
-            {!coordData ? (
-              <div style={{ padding: '16px', background: 'rgba(255,50,50,0.1)', borderRadius: '12px', border: '1px solid rgba(255,50,50,0.2)' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#ff7882', textTransform: 'uppercase', letterSpacing: '1px' }}>No Ocean Telemetry Available</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-                  This grid cell covers landmass. Subsurface modeling and satellite telemetry are only available for oceanic regions.
+            {/* ── Loading State ── */}
+            {isLoading && (
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '16px',
+                padding: '24px',
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '16px',
+                border: '1px solid rgba(139,182,214,0.1)',
+                backdropFilter: 'blur(8px)',
+              }}>
+                {isPolling ? (
+                  <div style={{ width: '100%', maxWidth: '240px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1px', textTransform: 'uppercase' }}>Processing</span>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#fff' }}>{pollProgress}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '14px', background: 'rgba(0, 20, 40, 0.5)', borderRadius: '7px', overflow: 'hidden', border: '1px solid rgba(139,182,214,0.2)', boxShadow: 'inset 0 2px 5px rgba(0,0,0,0.5)' }}>
+                      <div style={{ 
+                        width: `${pollProgress}%`, 
+                        height: '100%', 
+                        background: 'linear-gradient(90deg, #003366, #0074D9, #4facfe)', 
+                        transition: 'width 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                        borderRadius: '6px',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '40px',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
+                          animation: 'travel-glare 1.5s infinite linear'
+                        }} />
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '4px' }}>Generating Subsurface Matrix...</div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '50%',
+                      border: '2px solid rgba(139,182,214,0.15)',
+                      borderTopColor: '#8bb6d6',
+                      borderRightColor: 'rgba(139,182,214,0.5)',
+                      animation: 'spin 0.9s linear infinite',
+                      boxShadow: '0 0 20px rgba(139,182,214,0.2)',
+                    }} />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '500', color: '#8bb6d6', letterSpacing: '1.5px', textTransform: 'uppercase' }}>Fetching Ocean Data</div>
+                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Contacting AI inference server…</div>
+                    </div>
+                  </>
+                )}
+                <style>{`
+                  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                  @keyframes travel-glare {
+                    0% { transform: translateX(-50px) skewX(-20deg); }
+                    100% { transform: translateX(260px) skewX(-20deg); }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {/* ── Network Error State ── */}
+            {!isLoading && fetchError?.type === 'network' && (
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '16px',
+                padding: '24px',
+                background: 'rgba(255,50,50,0.06)',
+                borderRadius: '16px',
+                border: '1px solid rgba(255,50,50,0.18)',
+              }}>
+                <div style={{
+                  width: '52px', height: '52px', borderRadius: '50%',
+                  background: 'rgba(255,50,50,0.12)',
+                  border: '1px solid rgba(255,80,80,0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <WifiOff size={24} color="#ff7882" />
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#ff7882', letterSpacing: '0.5px' }}>Backend Unreachable</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', lineHeight: '1.6', maxWidth: '180px' }}>
+                    {fetchError.message}
+                  </div>
+                </div>
+                <button
+                  id="retry-connection-btn"
+                  onClick={() => triggerFetch(clickedCell.minLat, clickedCell.minLng, selectedDate)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '10px 20px',
+                    background: 'rgba(255,80,80,0.12)',
+                    border: '1px solid rgba(255,80,80,0.3)',
+                    borderRadius: '10px',
+                    color: '#ff7882',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    letterSpacing: '0.5px',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.22)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <RefreshCw size={14} />
+                  Retry Connection
+                </button>
+              </div>
+            )}
+
+            {/* ── No Data State (404 / 422) ── */}
+            {!isLoading && fetchError?.type === 'no-data' && (
+              <div style={{
+                padding: '16px',
+                background: 'rgba(139,182,214,0.06)',
+                borderRadius: '12px',
+                border: '1px solid rgba(139,182,214,0.18)',
+              }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>No Data Available</h4>
+                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.6' }}>
+                  {fetchError.message}
                 </p>
               </div>
-            ) : !cellData ? (
-              <div style={{ padding: '16px', background: 'rgba(139,182,214,0.08)', borderRadius: '12px', border: '1px solid rgba(139,182,214,0.2)' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>No Telemetry Data Available for this Date</h4>
-                <p style={{ margin: 0, fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
-                  Satellite observations for {formatDateKey(selectedDate)} have not been ingested yet. Try selecting a date between Sept 18–21, 2026.
-                </p>
-              </div>
-            ) : (
+            )}
+
+            {/* ── Success State ── */}
+            {!isLoading && !fetchError && oceanData && (
               <>
                 <div style={{ padding: '12px', background: 'rgba(255,255,255,0.06)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                   <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '500', color: '#8bb6d6', textTransform: 'uppercase', letterSpacing: '1px' }}>Satellite Surface Inputs</h4>
@@ -907,7 +1154,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ThermometerSun size={16} color="#ff7882" /> SST</div>
-                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SST_celsius}°C</div>
+                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SST_celsius}°C</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('SSS')}
@@ -916,7 +1163,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Droplets size={16} color="#35b779" /> SSS</div>
-                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SSS_psu} psu</div>
+                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSS_psu} psu</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('SSH')}
@@ -925,7 +1172,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Waves size={16} color="#8bb6d6" /> SSH</div>
-                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.SSH_meters}m</div>
+                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.SSH_meters}m</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('Currents')}
@@ -934,7 +1181,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Navigation size={16} color="#fde725" /> Currents</div>
-                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.currents_uv.join(', ')} m/s</div>
+                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.currents_uv?.join(', ') ?? 'N/A'} m/s</div>
                     </button>
                     <button
                       onClick={() => setActiveObservation('Winds')}
@@ -943,7 +1190,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Wind size={16} color="#d4a5a5" /> Winds</div>
-                      <div style={{ fontWeight: 500 }}>{cellData.surface_inputs.winds_uv.join(', ')} m/s</div>
+                      <div style={{ fontWeight: 500 }}>{oceanData.surface_inputs.winds_uv?.join(', ') ?? 'N/A'} m/s</div>
                     </button>
                   </div>
                 </div>
@@ -1007,13 +1254,14 @@ const OceanGlobeView: React.FC = () => {
               </>
             )}
 
+            {/* ── Date Stepper (always shown at bottom) ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto', width: '100%', alignItems: 'flex-end' }}>
               {(() => {
-                const TODAY = new Date(2026, 8, 21);
+                const TODAY = new Date(2024, 11, 15);
                 return (
                   <>
                     <button
-                      onClick={() => setSelectedDate(TODAY)}
+                      onClick={(e) => e.preventDefault()}
                       style={{
                         width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
                         background: 'rgba(4, 21, 45, 0.7)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -1030,7 +1278,7 @@ const OceanGlobeView: React.FC = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(4, 21, 45, 0.7)'; e.currentTarget.style.color = 'rgba(139, 182, 214, 0.8)'; e.currentTarget.style.transform = 'scale(1)'; }}
                       onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.95)'; }}
                       onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; }}
-                      title="Go to Today (Sept 21, 2026)"
+                      title="Go to Today (Dec 15, 2024)"
                     >
                       <Calendar size={16}>
                         <text x="12" y="18" fontSize="9" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none" textRendering="geometricPrecision">
@@ -1044,8 +1292,6 @@ const OceanGlobeView: React.FC = () => {
               })()}
             </div>
           </div>
-            );
-          })()}
         </div>
         </>
       )}
@@ -1069,7 +1315,7 @@ const OceanGlobeView: React.FC = () => {
         <DepthModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
-          predictions={clickedCell && regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`][formatDateKey(selectedDate)].ai_predictions : undefined} 
+          predictions={oceanData?.ai_predictions}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
           searchedLocation={searchedLocation}
@@ -1077,7 +1323,7 @@ const OceanGlobeView: React.FC = () => {
         <ValidationModal
           isOpen={isValidationModalOpen}
           onClose={() => setIsValidationModalOpen(false)}
-          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ?? null : null}
+          data={oceanData ?? null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
         />
@@ -1086,7 +1332,7 @@ const OceanGlobeView: React.FC = () => {
           onClose={() => setActiveObservation(null)}
           metricType={activeObservation}
           selectedDate={selectedDate}
-          data={clickedCell ? regionalMockData[`${clickedCell.minLat},${clickedCell.minLng}`]?.[formatDateKey(selectedDate)] ?? null : null}
+          data={oceanData ?? null}
           latRange={clickedCell ? [clickedCell.minLat, clickedCell.maxLat] : undefined}
           lngRange={clickedCell ? [clickedCell.minLng, clickedCell.maxLng] : undefined}
         />
@@ -1124,7 +1370,7 @@ const OceanGlobeView: React.FC = () => {
         }}>OceanEmbed</h2>
       </motion.div>
 
-      {showLoading && (
+      {(showLoading || backendHealthy === false) && (
         <div
           style={{
             position: 'absolute',
@@ -1134,9 +1380,9 @@ const OceanGlobeView: React.FC = () => {
             height: '100%',
             zIndex: 9999,
             backgroundColor: '#000',
-            opacity: fadeOutLoading ? 0 : 1,
+            opacity: (fadeOutLoading && backendHealthy === true) ? 0 : 1,
             transition: 'opacity 0.8s ease-in-out',
-            pointerEvents: 'none',
+            pointerEvents: backendHealthy === false ? 'auto' : 'none',
             backgroundImage: `url(${LoadingBg})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
@@ -1148,29 +1394,89 @@ const OceanGlobeView: React.FC = () => {
             paddingBottom: '60px',
           }}
         >
-          <h1 style={{
-            margin: 0,
-            fontSize: '56px',
-            fontWeight: 622,
-            fontFamily: "'Syne', sans-serif",
-            color: '#fff',
-            letterSpacing: '-1.5px',
-            animation: 'strobe 2s ease-in-out infinite',
-            textShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          }}>
-            OceanEmbed
-          </h1>
-          <p style={{
-            margin: '8px 0 0 0',
-            fontSize: '15px',
-            fontWeight: 400,
-            fontFamily: "'Google Sans', 'Product Sans', sans-serif",
-            color: 'rgba(255, 255, 255, 0.8)',
-            letterSpacing: '-0.2px',
-            textShadow: '0 2px 10px rgba(0,0,0,0.5)',
-          }}>
-            Satellite Embedding-Based Ocean Reconstruction
-          </p>
+          {backendHealthy === false ? (
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '50%',
+                  background: 'rgba(255,50,50,0.12)',
+                  border: '1px solid rgba(255,80,80,0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <WifiOff size={32} color="#ff7882" />
+                </div>
+              </div>
+              <h1 style={{
+                margin: 0,
+                fontSize: '48px',
+                fontWeight: 622,
+                fontFamily: "'Syne', sans-serif",
+                color: '#ff7882',
+                letterSpacing: '-1.5px',
+                textShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              }}>
+                Backend Unreachable
+              </h1>
+              <p style={{
+                margin: '8px 0 24px 0',
+                fontSize: '15px',
+                fontWeight: 400,
+                fontFamily: "'Google Sans', 'Product Sans', sans-serif",
+                color: 'rgba(255, 255, 255, 0.8)',
+                letterSpacing: '-0.2px',
+                textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              }}>
+                Could not connect to the AI inference server. Please check your connection and try again.
+              </p>
+              <button
+                onClick={checkHealth}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '12px 24px',
+                  background: 'rgba(255,80,80,0.12)',
+                  border: '1px solid rgba(255,80,80,0.3)',
+                  borderRadius: '12px',
+                  color: '#ff7882',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  letterSpacing: '0.5px',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.22)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,80,80,0.12)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                <RefreshCw size={16} />
+                Retry Connection
+              </button>
+            </div>
+          ) : (
+            <>
+              <h1 style={{
+                margin: 0,
+                fontSize: '56px',
+                fontWeight: 622,
+                fontFamily: "'Syne', sans-serif",
+                color: '#fff',
+                letterSpacing: '-1.5px',
+                animation: 'strobe 2s ease-in-out infinite',
+                textShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              }}>
+                OceanEmbed
+              </h1>
+              <p style={{
+                margin: '8px 0 0 0',
+                fontSize: '15px',
+                fontWeight: 400,
+                fontFamily: "'Google Sans', 'Product Sans', sans-serif",
+                color: 'rgba(255, 255, 255, 0.8)',
+                letterSpacing: '-0.2px',
+                textShadow: '0 2px 10px rgba(0,0,0,0.5)',
+              }}>
+                Satellite Embedding-Based Ocean Reconstruction
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
