@@ -63,7 +63,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
       </div>
 
       {/* Right-Side Glassmorphic Card */}
-      <div className="glass-card">
+      <div 
+        className="glass-card-container"
+        style={{
+          background: 'rgba(4, 21, 45, 0.4)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          borderRadius: '1.5rem',
+          border: '1px solid rgba(139, 182, 214, 0.2)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '28rem',
+          boxSizing: 'border-box'
+        }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem', textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FFFFFF', margin: 0, paddingBottom: '0.25rem' }}>Welcome Back</h2>
         </div>
