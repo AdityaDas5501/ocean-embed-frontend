@@ -636,7 +636,7 @@ const RaycastFixer = () => {
 const DepthModal: React.FC<DepthModalProps> = ({ isOpen, onClose, predictions, latRange, lngRange, searchedLocation }) => {
   const [selectedLayer, setSelectedLayer] = useState<number | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(isOpen);
-  const [zScale, setZScale] = useState(2.5);
+  const [zScale, setZScale] = useState(1.5);
   const [autoRotate, setAutoRotate] = useState(true);
   const backdropPointerDown = useRef(false);
 
