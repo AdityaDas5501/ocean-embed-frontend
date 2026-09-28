@@ -15,7 +15,7 @@ function App() {
     });
 
     // Check if user is already logged in
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
     }

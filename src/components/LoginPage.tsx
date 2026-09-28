@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, setInMemoryToken } from '../services/api';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -41,8 +41,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
         localStorage.setItem('token', data.access_token);
         sessionStorage.removeItem('token');
       } else {
-        sessionStorage.setItem('token', data.access_token);
+        setInMemoryToken(data.access_token);
         localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
       }
 
       onLogin();
