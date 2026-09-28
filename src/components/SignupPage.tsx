@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
+import { API_BASE_URL, setInMemoryToken } from '../services/api';
 import './LoginPage.css'; // Reusing the exact same glassmorphism styles
 
 interface SignupPageProps {
@@ -12,13 +13,47 @@ interface SignupPageProps {
 const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password !== confirmPassword) return;
-    onSignup();
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: fullName, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Signup failed.');
+      }
+
+      // Store token in memory only (no remember-me on signup)
+      setInMemoryToken(data.access_token);
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
+
+      onSignup();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -54,6 +89,12 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
         </div>
 
         <form onSubmit={handleSubmit}>
+          {error && (
+            <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', textAlign: 'center', fontSize: '0.875rem' }}>
+              {error}
+            </div>
+          )}
+
           <div className="input-container">
             <User className="input-icon" size={20} />
             <input 
@@ -61,6 +102,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
               className="input-field" 
               placeholder="Full Name" 
               required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
             />
           </div>
 
@@ -71,6 +114,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
               className="input-field" 
               placeholder="Email Address" 
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity('Please enter a valid email address.')}
               onInput={(e) => (e.target as HTMLInputElement).setCustomValidity('')}
             />
@@ -134,8 +179,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
             </button>
           </div>
 
-          <button type="submit" className="primary-btn" style={{ marginTop: '1.5rem' }}>
-            Sign Up
+          <button type="submit" className="primary-btn" disabled={isLoading} style={{ marginTop: '1.5rem', opacity: isLoading ? 0.7 : 1 }}>
+            {isLoading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 
