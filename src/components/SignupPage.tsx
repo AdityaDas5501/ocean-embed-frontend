@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Mail, Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
-import { API_BASE_URL, setInMemoryToken } from '../services/api';
-import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signOutUser } from '../services/firebase';
+import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signInFirebaseEmail, signOutUser } from '../services/firebase';
 import './LoginPage.css'; // Reusing the exact same glassmorphism styles
 
 interface SignupPageProps {
@@ -36,44 +35,35 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, email, password }),
-      });
+      // ── Step 1: Create Firebase user ─────────────────────────────────────────────
+      // Backend account creation is deferred until AFTER the user verifies their
+      // email. This prevents unverified accounts from existing in the database.
+      await createFirebaseUser(email, password);
 
-      const data = await response.json();
+      // ── Step 2: Send verification email ─────────────────────────────────────
+      await sendVerificationEmail();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Signup failed.');
-      }
+      // ── Step 3: Sign out immediately ───────────────────────────────────────
+      // Keeps the user on the SignupPage (onAuthChange won't fire because the
+      // Firebase user is unverified, so App.tsx won't change isAuthenticated).
+      await signOutUser();
 
-      // Store token in memory only (no remember-me on signup)
-      setInMemoryToken(data.access_token);
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
+      // ── Step 4: Stash registration data for backend call after verification ─
+      // On first login (after the user clicks the email link), LoginPage will
+      // detect this entry and complete the backend registration automatically.
+      sessionStorage.setItem(
+        'pendingSignup',
+        JSON.stringify({ fullName, email, password })
+      );
 
-      // Create Firebase user and send verification email.
-      // We sign out the Firebase session immediately so the user
-      // cannot access the app until their email is verified.
-      try {
-        await createFirebaseUser(email, password);
-        await sendVerificationEmail();
-        await signOutUser();
-        setInMemoryToken(null); // clear backend token too — require verified login
-        setVerificationSent(true);
-      } catch (firebaseErr: any) {
-        // If Firebase user already exists (e.g. re-signup attempt), just proceed.
-        if (firebaseErr?.code === 'auth/email-already-in-use') {
-          setVerificationSent(true);
-        } else {
-          // Firebase step failed but backend account was created.
-          // Fall through to the app without email verification.
-          onSignup();
-        }
-      }
+      // ── Step 5: Show the 'check your inbox' screen ───────────────────────
+      setVerificationSent(true);
     } catch (err: any) {
-      setError(err.message);
+      if (err?.code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists. Please log in.');
+      } else {
+        setError(err?.message || 'Signup failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,19 +72,15 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
   const handleResendVerification = async () => {
     setResendLoading(true);
     setResendSuccess(false);
+    setError('');
     try {
-      await createFirebaseUser(email, password).catch(async (err) => {
-        // User already exists — sign in to resend
-        if (err?.code === 'auth/email-already-in-use') {
-          const { signInFirebaseEmail } = await import('../services/firebase');
-          await signInFirebaseEmail(email, password);
-        } else throw err;
-      });
+      // Sign in temporarily just to call sendEmailVerification, then sign out.
+      await signInFirebaseEmail(email, password);
       await sendVerificationEmail();
       await signOutUser();
       setResendSuccess(true);
     } catch {
-      setError('Could not resend verification email. Please try logging in instead.');
+      setError('Could not resend the verification email. Please try again.');
     } finally {
       setResendLoading(false);
     }

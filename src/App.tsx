@@ -18,11 +18,14 @@ function App() {
     // Subscribe to Firebase auth state — covers both Google OAuth and
     // email/password sessions. Returns an unsubscribe function for cleanup.
     const unsubscribe = onAuthChange((user) => {
-      setIsAuthenticated(!!user);
-      // Also honour legacy JWT tokens stored in localStorage
-      if (!user && localStorage.getItem('token')) {
+      if (user && (user.emailVerified || user.providerData.some(p => p.providerId === 'google.com'))) {
+        // Fully verified Firebase session (Google OAuth or verified email)
         setIsAuthenticated(true);
+      } else if (!user) {
+        // No Firebase session — fall back to legacy JWT in localStorage
+        setIsAuthenticated(!!localStorage.getItem('token'));
       }
+      // Unverified email users → don't touch auth state; they stay on the signup page
     });
 
     return () => unsubscribe();

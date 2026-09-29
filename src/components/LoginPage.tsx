@@ -52,7 +52,35 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
         }
       }
 
-      // ── Step 2: Backend login ──────────────────────────────────────────────
+      // ── Step 2: Complete backend registration on first post-verification login ─
+      // The signup form stored {fullName, email, password} in sessionStorage.
+      // We consume it here now that we know the email is verified.
+      const rawPending = sessionStorage.getItem('pendingSignup');
+      if (rawPending) {
+        try {
+          const pending = JSON.parse(rawPending);
+          if (pending.email === email) {
+            const signupRes = await fetch(`${API_BASE_URL}/auth/signup`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ full_name: pending.fullName, email: pending.email, password: pending.password }),
+            });
+            if (signupRes.ok) {
+              // Account created — clear the pending entry so it never fires again
+              sessionStorage.removeItem('pendingSignup');
+            }
+            // If backend says the account already exists, still remove and continue
+            else if (signupRes.status === 409 || signupRes.status === 400) {
+              sessionStorage.removeItem('pendingSignup');
+            }
+          }
+        } catch {
+          // Registration completion failed — proceed to login anyway;
+          // the user can contact support or try again.
+        }
+      }
+
+      // ── Step 3: Backend login ──────────────────────────────────────────────
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
