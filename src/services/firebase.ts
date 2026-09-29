@@ -12,6 +12,7 @@ import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   type User,
 } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
@@ -91,4 +92,13 @@ export async function sendVerificationEmail(): Promise<void> {
 export async function signInFirebaseEmail(email: string, password: string): Promise<User> {
   const result = await signInWithEmailAndPassword(auth, email, password);
   return result.user;
+}
+
+/**
+ * Sends a Firebase password-reset email to the given address.
+ * Firebase handles the secure token generation and branded email delivery.
+ * Throws if the email is not registered (auth/user-not-found).
+ */
+export async function sendPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }
