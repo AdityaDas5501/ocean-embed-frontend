@@ -287,6 +287,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
         ) : (
           /* ── Normal login form ── */
           <>
+          <form onSubmit={handleLogin}>
 
           <div className="input-container">
             <User className="input-icon" size={20} />
@@ -388,7 +389,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
           <p style={{ textAlign: 'center', marginTop: '1.5rem', marginBottom: 0, fontSize: '0.875rem', color: '#D1D5DB' }}>
             Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToSignup(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Sign Up</a>
           </p>
-        </>
+          </>
         )}
       </div>
     </div>
