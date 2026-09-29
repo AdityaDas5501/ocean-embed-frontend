@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { User, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Mail, Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { API_BASE_URL, setInMemoryToken } from '../services/api';
-import { signInWithGoogle } from '../services/firebase';
+import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signOutUser } from '../services/firebase';
 import './LoginPage.css'; // Reusing the exact same glassmorphism styles
 
 interface SignupPageProps {
@@ -21,6 +21,9 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +53,50 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
       localStorage.removeItem('token');
       sessionStorage.removeItem('token');
 
-      onSignup();
+      // Create Firebase user and send verification email.
+      // We sign out the Firebase session immediately so the user
+      // cannot access the app until their email is verified.
+      try {
+        await createFirebaseUser(email, password);
+        await sendVerificationEmail();
+        await signOutUser();
+        setInMemoryToken(null); // clear backend token too — require verified login
+        setVerificationSent(true);
+      } catch (firebaseErr: any) {
+        // If Firebase user already exists (e.g. re-signup attempt), just proceed.
+        if (firebaseErr?.code === 'auth/email-already-in-use') {
+          setVerificationSent(true);
+        } else {
+          // Firebase step failed but backend account was created.
+          // Fall through to the app without email verification.
+          onSignup();
+        }
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await createFirebaseUser(email, password).catch(async (err) => {
+        // User already exists — sign in to resend
+        if (err?.code === 'auth/email-already-in-use') {
+          const { signInFirebaseEmail } = await import('../services/firebase');
+          await signInFirebaseEmail(email, password);
+        } else throw err;
+      });
+      await sendVerificationEmail();
+      await signOutUser();
+      setResendSuccess(true);
+    } catch {
+      setError('Could not resend verification email. Please try logging in instead.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -69,22 +111,101 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
         </div>
       </div>
 
-      {/* Right-Side Glassmorphic Card */}
-      <div 
-        className="glass-card-container"
-        style={{
-          background: 'rgba(4, 21, 45, 0.4)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderRadius: '1.5rem',
-          border: '1px solid rgba(139, 182, 214, 0.2)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          padding: '2rem',
-          width: '100%',
-          maxWidth: '28rem',
-          boxSizing: 'border-box'
-        }}
-      >
+      {/* ── Verification Pending Screen ── */}
+      {verificationSent ? (
+        <div
+          style={{
+            background: 'rgba(4, 21, 45, 0.4)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.5rem',
+            border: '1px solid rgba(139, 182, 214, 0.2)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            padding: '2.5rem 2rem',
+            width: '100%',
+            maxWidth: '28rem',
+            boxSizing: 'border-box' as const,
+            display: 'flex',
+            flexDirection: 'column' as const,
+            alignItems: 'center',
+            textAlign: 'center' as const,
+            gap: '1rem',
+          }}
+        >
+          {/* Icon */}
+          <div style={{
+            width: '72px', height: '72px', borderRadius: '50%',
+            background: 'rgba(37, 99, 235, 0.15)',
+            border: '1px solid rgba(37, 99, 235, 0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <MailCheck size={36} color="#60A5FA" />
+          </div>
+
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
+            Check your inbox
+          </h2>
+          <p style={{ fontSize: '0.9rem', color: '#CBD5E1', margin: 0, lineHeight: 1.6 }}>
+            We sent a verification link to<br />
+            <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{email}</span>
+          </p>
+          <p style={{ fontSize: '0.8rem', color: '#94A3B8', margin: 0 }}>
+            Click the link in the email to activate your account, then log in below.
+          </p>
+
+          {error && (
+            <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.6rem 1rem', borderRadius: '0.5rem', fontSize: '0.8rem', width: '100%' }}>
+              {error}
+            </div>
+          )}
+
+          {resendSuccess && (
+            <div style={{ color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.1)', padding: '0.6rem 1rem', borderRadius: '0.5rem', fontSize: '0.8rem', width: '100%' }}>
+              ✓ Verification email resent!
+            </div>
+          )}
+
+          {/* Resend */}
+          <button
+            type="button"
+            className="secondary-btn"
+            style={{ marginTop: '0.5rem', opacity: resendLoading ? 0.7 : 1 }}
+            disabled={resendLoading}
+            onClick={handleResendVerification}
+          >
+            {resendLoading
+              ? <span style={{ display: 'inline-block', width: 18, height: 18, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+              : <RefreshCw size={16} />
+            }
+            {resendLoading ? 'Resending...' : 'Resend verification email'}
+          </button>
+
+          {/* Back to Login */}
+          <p style={{ fontSize: '0.875rem', color: '#D1D5DB', margin: 0 }}>
+            Already verified?{' '}
+            <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToLogin(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>
+              Log in
+            </a>
+          </p>
+        </div>
+
+      ) : (
+        /* Right-Side Glassmorphic Card */
+        <div 
+          className="glass-card-container"
+          style={{
+            background: 'rgba(4, 21, 45, 0.4)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.5rem',
+            border: '1px solid rgba(139, 182, 214, 0.2)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            padding: '2rem',
+            width: '100%',
+            maxWidth: '28rem',
+            boxSizing: 'border-box'
+          }}
+        >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem', textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FFFFFF', margin: 0, paddingBottom: '0.25rem' }}>Create an Account</h2>
 
@@ -229,7 +350,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', marginBottom: 0, fontSize: '0.875rem', color: '#D1D5DB' }}>
           Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToLogin(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Login</a>
         </p>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

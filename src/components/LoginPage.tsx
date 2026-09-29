@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, MailCheck } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { API_BASE_URL, setInMemoryToken } from '../services/api';
-import { signInWithGoogle } from '../services/firebase';
+import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser } from '../services/firebase';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -19,13 +19,40 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setUnverifiedEmail(false);
     setIsLoading(true);
 
     try {
+      // ── Step 1: Check Firebase email verification ──────────────────────────
+      // We sign into Firebase purely to read emailVerified, then sign out.
+      // If Firebase doesn't know this user (legacy account), we skip silently.
+      try {
+        const firebaseUser = await signInFirebaseEmail(email, password);
+        if (!firebaseUser.emailVerified) {
+          await signOutUser();
+          setUnverifiedEmail(true);
+          setError('Please verify your email address before logging in.');
+          setIsLoading(false);
+          return;
+        }
+        await signOutUser(); // signed in only for the check
+      } catch (firebaseErr: any) {
+        // auth/user-not-found or auth/wrong-password — likely a legacy account;
+        // skip the verification gate and proceed to backend login.
+        const ignoredCodes = ['auth/user-not-found', 'auth/invalid-credential', 'auth/wrong-password'];
+        if (!ignoredCodes.includes(firebaseErr?.code)) {
+          throw firebaseErr;
+        }
+      }
+
+      // ── Step 2: Backend login ──────────────────────────────────────────────
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,6 +80,22 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
       setError(err.message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await signInFirebaseEmail(email, password);
+      await sendVerificationEmail();
+      await signOutUser();
+      setResendSuccess(true);
+      setError('');
+    } catch {
+      setError('Could not resend the email. Please try again.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -90,8 +133,29 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
 
 
         {error && (
-          <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem', textAlign: 'center', fontSize: '0.875rem' }}>
-            {error}
+          <div style={{ borderRadius: '0.5rem', marginBottom: '1rem', textAlign: 'center', fontSize: '0.875rem', overflow: 'hidden' }}>
+            <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem' }}>
+              {error}
+            </div>
+            {unverifiedEmail && (
+              <div style={{ backgroundColor: 'rgba(30, 41, 59, 0.6)', padding: '0.6rem 0.75rem', borderTop: '1px solid rgba(239,68,68,0.2)' }}>
+                {resendSuccess ? (
+                  <p style={{ margin: 0, color: '#34d399', fontSize: '0.8rem' }}>
+                    ✓ Verification email sent! Check your inbox.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#93C5FD', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', opacity: resendLoading ? 0.6 : 1 }}
+                  >
+                    <MailCheck size={14} />
+                    {resendLoading ? 'Sending...' : 'Resend verification email'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

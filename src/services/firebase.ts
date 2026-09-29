@@ -9,6 +9,9 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  signInWithEmailAndPassword,
   type User,
 } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
@@ -59,4 +62,33 @@ export async function signOutUser(): Promise<void> {
  */
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Creates a Firebase email/password user.
+ * Called during signup so Firebase can manage the account and send verification emails.
+ */
+export async function createFirebaseUser(email: string, password: string): Promise<User> {
+  const result = await createUserWithEmailAndPassword(auth, email, password);
+  return result.user;
+}
+
+/**
+ * Sends a verification email to the currently signed-in Firebase user.
+ */
+export async function sendVerificationEmail(): Promise<void> {
+  if (auth.currentUser) {
+    await sendEmailVerification(auth.currentUser);
+  }
+}
+
+/**
+ * Signs in with email/password via Firebase.
+ * Used during login to check emailVerified status before allowing access.
+ * The caller should sign out immediately after checking if they only need
+ * the verification status and are using a separate backend JWT.
+ */
+export async function signInFirebaseEmail(email: string, password: string): Promise<User> {
+  const result = await signInWithEmailAndPassword(auth, email, password);
+  return result.user;
 }
