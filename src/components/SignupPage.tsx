@@ -85,7 +85,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
       >
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem', textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#FFFFFF', margin: 0, paddingBottom: '0.25rem' }}>Create an Account</h2>
-          <p style={{ color: '#D1D5DB', margin: 0, fontSize: '0.875rem' }}>Register to access INCOIS telemetry</p>
+
+
         </div>
 
         <form onSubmit={handleSubmit}>
