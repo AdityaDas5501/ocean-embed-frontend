@@ -1,5 +1,9 @@
 /* LoginPage.css */
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

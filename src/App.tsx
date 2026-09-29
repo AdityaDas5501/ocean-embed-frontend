@@ -3,6 +3,7 @@ import OceanGlobeView from './components/OceanGlobeView';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignupPage';
 import { checkBackendHealth } from './services/api';
+import { onAuthChange } from './services/firebase';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -14,11 +15,17 @@ function App() {
       if (isAwake) console.log('Backend is awake!');
     });
 
-    // Check if user is already logged in
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsAuthenticated(true);
-    }
+    // Subscribe to Firebase auth state — covers both Google OAuth and
+    // email/password sessions. Returns an unsubscribe function for cleanup.
+    const unsubscribe = onAuthChange((user) => {
+      setIsAuthenticated(!!user);
+      // Also honour legacy JWT tokens stored in localStorage
+      if (!user && localStorage.getItem('token')) {
+        setIsAuthenticated(true);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   if (!isAuthenticated) {
