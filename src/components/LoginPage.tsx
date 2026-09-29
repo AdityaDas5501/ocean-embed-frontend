@@ -36,10 +36,21 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
     setUnverifiedEmail(false);
     setIsLoading(true);
 
+    // ── Guard: clear any stale localStorage token before we start ─────────────
+    // If the user previously used "Remember me", an old token sits in localStorage.
+    // When signOutUser() fires below, onAuthStateChanged(null) would find that token
+    // and set isAuthenticated(true) — unmounting this page mid-flow (the "nothing"
+    // bug). We clear it now; a fresh token is written on successful login.
+    localStorage.removeItem('token');
+
+    // Tracks whether Firebase accepted the credentials so we can give a better
+    // error if the backend rejects them (post-reset password sync gap).
+    let firebaseVerified = false;
+
     try {
       // ── Step 1: Check Firebase email verification ──────────────────────────
-      // We sign into Firebase purely to read emailVerified, then sign out.
-      // If Firebase doesn't know this user (legacy account), we skip silently.
+      // Sign into Firebase only to read emailVerified, then sign out immediately.
+      // If Firebase doesn't know this user (legacy account), skip silently.
       try {
         const firebaseUser = await signInFirebaseEmail(email, password);
         if (!firebaseUser.emailVerified) {
@@ -49,10 +60,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
           setIsLoading(false);
           return;
         }
-        await signOutUser(); // signed in only for the check
+        firebaseVerified = true; // Firebase accepted this password ✓
+        await signOutUser();     // signed in only for the check
       } catch (firebaseErr: any) {
-        // auth/user-not-found or auth/wrong-password — likely a legacy account;
-        // skip the verification gate and proceed to backend login.
+        // auth/wrong-password / auth/invalid-credential → likely a legacy account
+        // that predates Firebase or the password hasn't changed → skip silently.
         const ignoredCodes = ['auth/user-not-found', 'auth/invalid-credential', 'auth/wrong-password'];
         if (!ignoredCodes.includes(firebaseErr?.code)) {
           throw firebaseErr;
@@ -60,8 +72,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
       }
 
       // ── Step 2: Complete backend registration on first post-verification login ─
-      // The signup form stored {fullName, email, password} in sessionStorage.
-      // We consume it here now that we know the email is verified.
       const rawPending = sessionStorage.getItem('pendingSignup');
       if (rawPending) {
         try {
@@ -72,18 +82,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ full_name: pending.fullName, email: pending.email, password: pending.password }),
             });
-            if (signupRes.ok) {
-              // Account created — clear the pending entry so it never fires again
-              sessionStorage.removeItem('pendingSignup');
-            }
-            // If backend says the account already exists, still remove and continue
-            else if (signupRes.status === 409 || signupRes.status === 400) {
+            if (signupRes.ok || signupRes.status === 409 || signupRes.status === 400) {
               sessionStorage.removeItem('pendingSignup');
             }
           }
         } catch {
-          // Registration completion failed — proceed to login anyway;
-          // the user can contact support or try again.
+          // Registration completion failed — proceed to login anyway.
         }
       }
 
@@ -97,6 +101,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
       const data = await response.json();
 
       if (!response.ok) {
+        if (firebaseVerified && (response.status === 401 || response.status === 403 || response.status === 400)) {
+          // Firebase accepted the new password but the backend still has the old
+          // hash — this happens after a Firebase password reset.
+          throw new Error(
+            'Your password was reset but your app account hasn\'t been synced yet. ' +
+            'Please use your OLD password to log in, then change it from your profile — ' +
+            'or contact support to re-sync your account.'
+          );
+        }
         throw new Error(data.message || 'Login failed');
       }
 
