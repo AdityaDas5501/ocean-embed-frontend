@@ -3,7 +3,7 @@ import { User, Lock, Eye, EyeOff, MailCheck, KeyRound, ArrowLeft } from 'lucide-
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { API_BASE_URL, setInMemoryToken } from '../services/api';
-import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser, sendPasswordReset } from '../services/firebase';
+import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser, sendPasswordReset, getFirebaseIdToken } from '../services/firebase';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -46,6 +46,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
     // Tracks whether Firebase accepted the credentials so we can give a better
     // error if the backend rejects them (post-reset password sync gap).
     let firebaseVerified = false;
+    let firebaseIdToken: string | null = null;
 
     try {
       // ── Step 1: Check Firebase email verification ──────────────────────────
@@ -61,6 +62,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
           return;
         }
         firebaseVerified = true; // Firebase accepted this password ✓
+
+        // Grab the ID token NOW while the user is still signed in.
+        // We need it for /auth/sync-password if the backend login fails.
+        firebaseIdToken = await getFirebaseIdToken();
+
         await signOutUser();     // signed in only for the check
       } catch (firebaseErr: any) {
         // auth/wrong-password / auth/invalid-credential → likely a legacy account
@@ -92,24 +98,42 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
       }
 
       // ── Step 3: Backend login ──────────────────────────────────────────────
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      let response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
+      // ── Step 4: Auto-sync password if backend hash is stale ───────────────
+      // Firebase accepted the password (firebaseVerified=true) but the backend
+      // returned 401/403 — the password_hash in Postgres is from before the
+      // Firebase reset. Automatically sync it and retry login.
+      if (!response.ok && firebaseVerified && firebaseIdToken &&
+          (response.status === 401 || response.status === 403)) {
+        try {
+          const syncRes = await fetch(`${API_BASE_URL}/auth/sync-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ firebase_token: firebaseIdToken, new_password: password }),
+          });
+
+          if (syncRes.ok) {
+            // Hash is updated — retry the backend login with the new password
+            response = await fetch(`${API_BASE_URL}/auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            });
+          }
+          // If sync itself failed, fall through and show the original login error
+        } catch {
+          // Network error on sync — fall through to show the original error
+        }
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        if (firebaseVerified && (response.status === 401 || response.status === 403 || response.status === 400)) {
-          // Firebase accepted the new password but the backend still has the old
-          // hash — this happens after a Firebase password reset.
-          throw new Error(
-            'Your password was reset but your app account hasn\'t been synced yet. ' +
-            'Please use your OLD password to log in, then change it from your profile — ' +
-            'or contact support to re-sync your account.'
-          );
-        }
         throw new Error(data.message || 'Login failed');
       }
 

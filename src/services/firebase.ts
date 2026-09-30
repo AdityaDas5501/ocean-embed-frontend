@@ -102,3 +102,13 @@ export async function signInFirebaseEmail(email: string, password: string): Prom
 export async function sendPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
+
+/**
+ * Returns a short-lived Firebase ID Token for the currently signed-in user.
+ * Used to prove Firebase identity to the backend (e.g. for sync-password).
+ * forceRefresh=true guarantees a fresh token even if a cached one exists.
+ */
+export async function getFirebaseIdToken(forceRefresh = false): Promise<string> {
+  if (!auth.currentUser) throw new Error('No Firebase user is currently signed in.');
+  return auth.currentUser.getIdToken(forceRefresh);
+}
