@@ -3,7 +3,7 @@ import { User, Lock, Eye, EyeOff, MailCheck, KeyRound, ArrowLeft } from 'lucide-
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { API_BASE_URL, setInMemoryToken } from '../services/api';
-import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser, sendPasswordReset, getFirebaseIdToken } from '../services/firebase';
+import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser, sendPasswordReset, getFirebaseIdToken, setAuthChangeSuppressed } from '../services/firebase';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -36,11 +36,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
     setUnverifiedEmail(false);
     setIsLoading(true);
 
-    // ── Guard: clear any stale localStorage token before we start ─────────────
-    // If the user previously used "Remember me", an old token sits in localStorage.
-    // When signOutUser() fires below, onAuthStateChanged(null) would find that token
-    // and set isAuthenticated(true) — unmounting this page mid-flow (the "nothing"
-    // bug). We clear it now; a fresh token is written on successful login.
+    // ── Suppress Firebase auth state listener for the entire login flow ────────
+    // signInFirebaseEmail (used to check emailVerified) triggers onAuthStateChanged.
+    // Without suppression, App.tsx sees a verified user and calls setIsAuthenticated(true),
+    // unmounting this page mid-flow. We restore the listener in the finally block.
+    setAuthChangeSuppressed(true);
+
+    // Clear any stale localStorage token to prevent a different race condition
+    // (onAuthStateChanged(null) finding an old 'remember me' token).
     localStorage.removeItem('token');
 
     // Tracks whether Firebase accepted the credentials so we can give a better
@@ -151,6 +154,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
     } catch (err: any) {
       setError(err.message);
     } finally {
+      // Always restore the auth listener — whether login succeeded or failed.
+      setAuthChangeSuppressed(false);
       setIsLoading(false);
     }
   };

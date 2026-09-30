@@ -57,12 +57,31 @@ export async function signOutUser(): Promise<void> {
   await firebaseSignOut(auth);
 }
 
+// ─── Auth Change Suppression ──────────────────────────────────────────────────
+// During an email/password login flow, we temporarily sign into Firebase to
+// check emailVerified. This triggers onAuthStateChanged, which would otherwise
+// call setIsAuthenticated(true) in App.tsx — unmounting the LoginPage mid-flow.
+// Setting this flag to true silences those spurious notifications.
+let _suppressAuthChanges = false;
+
+/**
+ * Call with true at the start of a login flow and false in the finally block.
+ * While suppressed, onAuthChange callbacks are silently dropped.
+ */
+export function setAuthChangeSuppressed(suppressed: boolean): void {
+  _suppressAuthChanges = suppressed;
+}
+
 /**
  * Subscribes to Firebase auth state changes.
  * Returns the unsubscribe function.
+ * Callbacks are suppressed while setAuthChangeSuppressed(true) is active.
  */
 export function onAuthChange(callback: (user: User | null) => void): () => void {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, (user) => {
+    if (_suppressAuthChanges) return; // ignore mid-login-flow state changes
+    callback(user);
+  });
 }
 
 /**

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User, Lock, Mail, Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
-import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signInFirebaseEmail, signOutUser } from '../services/firebase';
+import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signInFirebaseEmail, signOutUser, setAuthChangeSuppressed } from '../services/firebase';
 import './LoginPage.css'; // Reusing the exact same glassmorphism styles
 
 interface SignupPageProps {
@@ -34,6 +34,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
     }
 
     setIsLoading(true);
+    setAuthChangeSuppressed(true);
     try {
       // ── Step 1: Create Firebase user ─────────────────────────────────────────────
       // Backend account creation is deferred until AFTER the user verifies their
@@ -65,6 +66,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
         setError(err?.message || 'Signup failed. Please try again.');
       }
     } finally {
+      setAuthChangeSuppressed(false);
       setIsLoading(false);
     }
   };
@@ -73,6 +75,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
     setResendLoading(true);
     setResendSuccess(false);
     setError('');
+    setAuthChangeSuppressed(true);
     try {
       // Sign in temporarily just to call sendEmailVerification, then sign out.
       await signInFirebaseEmail(email, password);
@@ -82,6 +85,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
     } catch {
       setError('Could not resend the verification email. Please try again.');
     } finally {
+      setAuthChangeSuppressed(false);
       setResendLoading(false);
     }
   };
