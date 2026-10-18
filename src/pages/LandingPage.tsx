@@ -18,6 +18,8 @@ import {
   Waves,
   Navigation,
   Wind,
+  Menu,
+  X,
 } from "lucide-react";
 import Logo from "../assets/logo.svg";
 import satelliteSrc from "../assets/images/satellite-wireframe.svg";
@@ -87,6 +89,23 @@ const ScrollFlyIn: React.FC<ScrollFlyInProps> = ({ children, from = "bottom", de
       {children}
     </div>
   );
+};
+
+const useIsMobile = (breakpoint = 768) => {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < breakpoint;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < breakpoint);
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
+  }, [breakpoint]);
+
+  return isMobile;
 };
 
 const WireframeGlobeScene: React.FC = () => {
@@ -727,6 +746,7 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
 
 
 const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ activeStage }) => {
+  const isMobile = useIsMobile(768);
   // Stage 1 State
   const [activeMetric, setActiveMetric] = useState<'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds'>('SST');
   const [activeTab, setActiveTab] = useState<'magnitude' | 'direction'>('magnitude');
@@ -747,10 +767,10 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
       style={{
         background: 'linear-gradient(145deg, rgba(16, 33, 54, 0.95), rgba(8, 16, 28, 0.95))',
         border: '1px solid rgba(139, 182, 214, 0.22)',
-        borderRadius: '24px',
+        borderRadius: isMobile ? '20px' : '24px',
         boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-        padding: '24px',
-        minHeight: activeStage === 1 ? 'auto' : '490px',
+        padding: isMobile ? '16px 14px' : '24px',
+        minHeight: activeStage === 1 ? 'auto' : (isMobile ? '350px' : '490px'),
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -762,7 +782,7 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
       {activeStage === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {/* Top 5 Metric Selection Buttons from OceanGlobeView sidebar */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: isMobile ? '4px' : '6px' }}>
             {METRICS.map((m) => {
               const isSel = activeMetric === m.id;
               const Icon = m.icon;
@@ -776,25 +796,25 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
                   style={{
                     background: isSel ? `${m.color}22` : 'rgba(255,255,255,0.04)',
                     border: `1px solid ${isSel ? m.color : 'rgba(255,255,255,0.1)'}`,
-                    borderRadius: '10px',
-                    padding: '8px 4px',
+                    borderRadius: isMobile ? '8px' : '10px',
+                    padding: isMobile ? '6px 2px' : '8px 4px',
                     color: '#fff',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: isMobile ? '2px' : '4px',
                     transition: 'all 0.2s ease',
                     boxShadow: isSel ? `0 0 14px ${m.color}33` : 'none',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Icon size={13} color={m.color} />
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: isSel ? m.color : 'rgba(255,255,255,0.8)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '2px' : '4px' }}>
+                    <Icon size={isMobile ? 11 : 13} color={m.color} />
+                    <span style={{ fontSize: isMobile ? '10px' : '11px', fontWeight: 600, color: isSel ? m.color : 'rgba(255,255,255,0.8)' }}>
                       {m.label}
                     </span>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#ffffff' }}>
+                  <span style={{ fontSize: isMobile ? '10px' : '11px', fontWeight: 700, color: '#ffffff' }}>
                     {m.val}
                   </span>
                 </button>
@@ -1287,6 +1307,7 @@ const ArgoSectionIllustration: React.FC = () => (
 );
 
 const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
+  const isMobile = useIsMobile(768);
   const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   // Depth axis: y: 35 (0m) to y: 375 (1000m) -> 340px vertical travel
@@ -1305,13 +1326,13 @@ const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
   ];
 
   return (
-    <div style={{ background: "rgba(8,27,51,0.65)", border: "1px solid rgba(186,230,253,0.18)", borderRadius: "24px", padding: "28px", backdropFilter: "blur(16px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
+    <div style={{ background: "rgba(8,27,51,0.65)", border: "1px solid rgba(186,230,253,0.18)", borderRadius: isMobile ? "20px" : "24px", padding: isMobile ? "18px 14px" : "28px", backdropFilter: "blur(16px)", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", position: "relative", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <div style={{ fontFamily: "Inter,sans-serif", fontSize: "11px", fontWeight: 600, letterSpacing: "0.12em", color: "#7dd3fc", textTransform: "uppercase" }}>Verification Profile</div>
-          <div style={{ fontFamily: "Syne,sans-serif", fontSize: "18px", fontWeight: 700, color: "#ffffff", marginTop: "2px" }}>Depth vs. Temperature</div>
+          <div style={{ fontFamily: "Syne,sans-serif", fontSize: isMobile ? "16px" : "18px", fontWeight: 700, color: "#ffffff", marginTop: "2px" }}>Depth vs. Temperature</div>
         </div>
-        <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: isMobile ? "12px" : "18px", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ width: 14, height: 3, background: "#38bdf8", borderRadius: 1.5, display: "inline-block" }} />
             <span style={{ fontFamily: "Inter,sans-serif", fontSize: "12px", color: "rgba(186,230,253,0.85)" }}>OceanEmbed AI</span>
@@ -1323,7 +1344,7 @@ const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
         </div>
       </div>
 
-      <div style={{ position: "relative", width: "100%", height: "430px" }}>
+      <div style={{ position: "relative", width: "100%", height: isMobile ? "300px" : "430px" }}>
         <svg
           viewBox="0 0 540 440"
           style={{ width: "100%", height: "100%", overflow: "visible" }}
@@ -1495,6 +1516,7 @@ interface CanvasRipple {
 }
 
 const OceanInteractiveOverlay: React.FC = () => {
+  const isMobile = useIsMobile(768);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ripplesRef = useRef<CanvasRipple[]>([]);
   const rippleIdRef = useRef(0);
@@ -1513,6 +1535,7 @@ const OceanInteractiveOverlay: React.FC = () => {
   });
 
   useEffect(() => {
+    if (isMobile) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d", { alpha: true });
@@ -1795,7 +1818,9 @@ const OceanInteractiveOverlay: React.FC = () => {
       window.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("mouseleave", onPointerLeave);
     };
-  }, []);
+  }, [isMobile]);
+
+  if (isMobile) return null;
 
   return (
     <canvas
@@ -1879,6 +1904,7 @@ const RECONSTRUCTION_STAGES = [
 ];
 
 const ArgoFloatTelemetry: React.FC<{ sectionRef: React.RefObject<HTMLElement | null> }> = React.memo(({ sectionRef }) => {
+  const isMobile = useIsMobile(768);
   const containerRef = useRef<HTMLDivElement>(null);
   const currentY = useRef(0);
   const targetY = useRef(0);
@@ -1888,6 +1914,7 @@ const ArgoFloatTelemetry: React.FC<{ sectionRef: React.RefObject<HTMLElement | n
 
   // Wheel speed dampener: makes the scroll slower when the argo illustration is visible in the viewport
   useEffect(() => {
+    if (isMobile) return;
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return;
       if (!sectionRef.current) return;
@@ -1915,10 +1942,11 @@ const ArgoFloatTelemetry: React.FC<{ sectionRef: React.RefObject<HTMLElement | n
 
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
-  }, [sectionRef]);
+  }, [sectionRef, isMobile]);
 
   // Viewport tracking & slow downward parallax glide
   useEffect(() => {
+    if (isMobile) return;
     const computeTarget = () => {
       if (!sectionRef.current) return;
       const rect = sectionRef.current.getBoundingClientRect();
@@ -2006,7 +2034,9 @@ const ArgoFloatTelemetry: React.FC<{ sectionRef: React.RefObject<HTMLElement | n
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [sectionRef]);
+  }, [sectionRef, isMobile]);
+
+  if (isMobile) return null;
 
   return (
     <div
@@ -2107,6 +2137,7 @@ const PersistentGlobeCanvas: React.FC = React.memo(() => {
 });
 
 const HeroSatelliteOrbit: React.FC = React.memo(() => {
+  const isMobile = useIsMobile(768);
   const [scrollY, setScrollY] = useState(0);
   const satelliteRef = useRef<HTMLDivElement>(null);
   const [orbitPath, setOrbitPath] = useState<{
@@ -2116,11 +2147,12 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
     b: number;
     angle: number;
   } | null>(() => {
-    if (typeof window === "undefined") return null;
+    if (typeof window === "undefined" || window.innerWidth < 768) return null;
     return computeOrbitGeometry(window.innerWidth, window.innerHeight);
   });
 
   useEffect(() => {
+    if (isMobile) return;
     const updateOrbit = () => {
       setOrbitPath(computeOrbitGeometry(window.innerWidth, window.innerHeight, satelliteRef.current));
     };
@@ -2131,9 +2163,10 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
       window.removeEventListener("resize", updateOrbit);
       clearTimeout(timer);
     };
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
+    if (isMobile) return;
     let lastScroll = window.scrollY;
     let ticking = false;
 
@@ -2154,9 +2187,9 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [isMobile]);
 
-  if (scrollY > 1100) return null;
+  if (isMobile || scrollY > 1100) return null;
 
   const orbitFade = clamp(1 - scrollY / 720, 0, 1);
   const satelliteFade = clamp((1 - scrollY / 820) * 0.78, 0, 0.78);
@@ -2302,11 +2335,14 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
 });
 
 const LandingPage: React.FC = () => {
+  const isMobile = useIsMobile(768);
   const accuracySectionRef = useRef<HTMLDivElement>(null);
   const howItWorksRef = useRef<HTMLElement>(null);
   const [accuracyInView, setAccuracyInView] = useState(false);
   const [activeStage, setActiveStage] = useState<number>(1);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   useEffect(() => {
     let ticking = false;
@@ -2467,24 +2503,13 @@ const LandingPage: React.FC = () => {
           }
         }
         @media (max-width: 768px) {
-          .orbital-satellite-fixed-layer {
-            width: 105px !important;
-            top: 7.5vh !important;
-            right: 4.5vw !important;
-            opacity: 0.55 !important;
-          }
-          .argo-float-telemetry {
-            opacity: 0.35 !important;
-            right: 8px !important;
-            width: 48px !important;
-          }
-        }
-        @media (max-width: 540px) {
-          .orbital-satellite-fixed-layer {
-            display: none !important;
-          }
+          .orbital-satellite-fixed-layer,
           .argo-float-telemetry {
             display: none !important;
+          }
+          .landing-3d-profile-container,
+          .stage2-3d-profile-container {
+            height: 300px !important;
           }
         }
       `}</style>
@@ -2501,44 +2526,229 @@ const LandingPage: React.FC = () => {
       {/* ARGO Autonomous Profiling Float Fixed Telemetry Accent */}
       <ArgoFloatTelemetry sectionRef={howItWorksRef} />
 
-      <header style={{ position:"fixed", top:0, left:0, right:0, zIndex:1000, padding:"16px 40px", display:"flex", alignItems:"center", justifyContent:"space-between", background:isScrolled ? "rgba(8,27,51,0.78)" : "transparent", backdropFilter:isScrolled ? "blur(20px)" : "none", WebkitBackdropFilter:isScrolled ? "blur(20px)" : "none", borderBottom:isScrolled ? "1px solid rgba(186,230,253,0.1)" : "1px solid transparent", transition:"all .35s ease" }}>
-        <Link to="/" style={{ display:"flex", alignItems:"center", gap:"12px", textDecoration:"none" }}>
-          <img src={Logo} alt="OceanEmbed" style={{ width:"30px", height:"30px" }} />
-          <span style={{ fontFamily:"Syne,sans-serif", fontSize:"24px", fontWeight:600, letterSpacing:"-0.5px", color:"#ffffff" }}>OceanEmbed</span>
+      <header
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          padding: isMobile ? "12px 18px" : "16px 40px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: isScrolled || mobileMenuOpen ? "rgba(8,27,51,0.92)" : "transparent",
+          backdropFilter: isScrolled || mobileMenuOpen ? "blur(20px)" : "none",
+          WebkitBackdropFilter: isScrolled || mobileMenuOpen ? "blur(20px)" : "none",
+          borderBottom: isScrolled || mobileMenuOpen ? "1px solid rgba(186,230,253,0.12)" : "1px solid transparent",
+          transition: "all .3s ease",
+        }}
+      >
+        <Link to="/" onClick={closeMobileMenu} style={{ display:"flex", alignItems:"center", gap:"10px", textDecoration:"none" }}>
+          <img src={Logo} alt="OceanEmbed" style={{ width: isMobile ? "24px" : "30px", height: isMobile ? "24px" : "30px" }} />
+          <span style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight:600, letterSpacing:"-0.5px", color:"#ffffff" }}>
+            OceanEmbed
+          </span>
         </Link>
-        <nav style={{ display:"flex", gap:"36px", alignItems:"center" }}>
-          <a href="#blind-spot" className="nav-anchor">The Blind Spot</a>
-          <a href="#how-it-works" className="nav-anchor">How It Works</a>
-          <a href="#accuracy" className="nav-anchor">Accuracy</a>
-        </nav>
-        <div style={{ display:"flex", alignItems:"center", gap:"16px" }}>
-          <Link to="/login" style={{ fontFamily:"Inter,sans-serif", fontSize:"13px", fontWeight:600, color:"rgba(186,230,253,0.8)", textDecoration:"none", padding:"8px 16px", borderRadius:"6px" }}>Sign In</Link>
-          <Link to="/dashboard" className="btn-primary" style={{ padding:"9px 22px", fontSize:"13px" }}>Launch 3D Globe</Link>
+        {!isMobile && (
+          <nav style={{ display:"flex", gap:"36px", alignItems:"center" }}>
+            <a href="#blind-spot" className="nav-anchor">The Blind Spot</a>
+            <a href="#how-it-works" className="nav-anchor">How It Works</a>
+            <a href="#accuracy" className="nav-anchor">Accuracy</a>
+          </nav>
+        )}
+        <div style={{ display:"flex", alignItems:"center", gap: isMobile ? "10px" : "16px" }}>
+          {!isMobile && (
+            <Link to="/login" style={{ fontFamily:"Inter,sans-serif", fontSize:"13px", fontWeight:600, color:"rgba(186,230,253,0.8)", textDecoration:"none", padding:"8px 16px", borderRadius:"6px" }}>
+              Sign In
+            </Link>
+          )}
+          <Link
+            to="/dashboard"
+            className="btn-primary"
+            style={{
+              padding: isMobile ? "7px 15px" : "9px 22px",
+              fontSize: isMobile ? "12px" : "13px",
+            }}
+          >
+            {isMobile ? "Launch 3D" : "Launch 3D Globe"}
+          </Link>
+          {isMobile && (
+            <button
+              onClick={() => setMobileMenuOpen(prev => !prev)}
+              aria-label="Toggle navigation menu"
+              style={{
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(186, 230, 253, 0.2)",
+                borderRadius: "8px",
+                width: "34px",
+                height: "34px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                cursor: "pointer",
+                padding: 0,
+              }}
+            >
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+          )}
         </div>
       </header>
+
+      {/* Mobile Slide-down Glass Navigation Menu */}
+      {isMobile && mobileMenuOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: "58px",
+            left: 0,
+            right: 0,
+            background: "rgba(6, 20, 38, 0.98)",
+            backdropFilter: "blur(24px)",
+            WebkitBackdropFilter: "blur(24px)",
+            borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
+            zIndex: 999,
+            padding: "20px 18px 24px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "14px",
+            animation: "stageFadeIn 0.25s ease-out",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.6)",
+          }}
+        >
+          <a
+            href="#blind-spot"
+            onClick={closeMobileMenu}
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#ffffff",
+              textDecoration: "none",
+              padding: "10px 0",
+              borderBottom: "1px solid rgba(186, 230, 253, 0.08)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>The Blind Spot</span>
+            <span style={{ fontSize: "11px", color: "#38bdf8", fontFamily: "Inter, monospace" }}>01 //</span>
+          </a>
+          <a
+            href="#how-it-works"
+            onClick={closeMobileMenu}
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#ffffff",
+              textDecoration: "none",
+              padding: "10px 0",
+              borderBottom: "1px solid rgba(186, 230, 253, 0.08)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>How It Works</span>
+            <span style={{ fontSize: "11px", color: "#38bdf8", fontFamily: "Inter, monospace" }}>02 //</span>
+          </a>
+          <a
+            href="#accuracy"
+            onClick={closeMobileMenu}
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#ffffff",
+              textDecoration: "none",
+              padding: "10px 0",
+              borderBottom: "1px solid rgba(186, 230, 253, 0.08)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span>Accuracy & Validation</span>
+            <span style={{ fontSize: "11px", color: "#38bdf8", fontFamily: "Inter, monospace" }}>03 //</span>
+          </a>
+          <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
+            <Link
+              to="/login"
+              onClick={closeMobileMenu}
+              style={{
+                flex: 1,
+                textAlign: "center",
+                fontFamily: "Inter, sans-serif",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#bae6fd",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(186,230,253,0.2)",
+                padding: "10px",
+                borderRadius: "8px",
+                textDecoration: "none",
+              }}
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/dashboard"
+              onClick={closeMobileMenu}
+              className="btn-primary"
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                padding: "10px",
+                fontSize: "13px",
+                borderRadius: "8px",
+              }}
+            >
+              Enter 3D Globe
+            </Link>
+          </div>
+        </div>
+      )}
 
       <section
         onMouseMove={handleHeroMouseMove}
         onMouseLeave={handleHeroMouseLeave}
-        style={{ position:"relative", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"120px 24px 80px", overflow:"hidden", background:"transparent", zIndex: 3 }}
+        style={{
+          position: "relative",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: isMobile ? "105px 18px 60px" : "120px 24px 80px",
+          overflow: "hidden",
+          background: "transparent",
+          zIndex: 3
+        }}
       >
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 40% 50%, transparent 25%, rgba(8,27,51,0.3) 65%, rgba(8,27,51,0.75) 100%)", pointerEvents:"none", zIndex:1 }} />
-        <div style={{ position:"absolute", top:"30%", left:"50%", transform:"translate(-50%,-50%)", width:"650px", height:"450px", background:"radial-gradient(ellipse, rgba(2,132,199,0.15) 0%, transparent 70%)", filter:"blur(50px)", pointerEvents:"none", zIndex:1 }} />
+        <div style={{ position:"absolute", top:"30%", left:"50%", transform:"translate(-50%,-50%)", width: isMobile ? "320px" : "650px", height: isMobile ? "300px" : "450px", background:"radial-gradient(ellipse, rgba(2,132,199,0.15) 0%, transparent 70%)", filter:"blur(50px)", pointerEvents:"none", zIndex:1 }} />
         <div style={{ position:"relative", zIndex:2, maxWidth:"1040px" }}>
-          <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.18em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase", marginBottom:"24px" }}>AI-Powered Subsurface Ocean Intelligence</div>
+          <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "10.5px" : "12px", fontWeight:600, letterSpacing: isMobile ? "0.14em" : "0.18em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase", marginBottom: isMobile ? "18px" : "24px" }}>
+            AI-Powered Subsurface Ocean Intelligence
+          </div>
           <h1
             ref={heroHeadlineRef}
             style={{
               fontFamily:"Syne,sans-serif",
-              fontSize:"clamp(3.4rem,8.5vw,8.2rem)",
+              fontSize: isMobile ? "clamp(2.3rem, 10.5vw, 4.4rem)" : "clamp(3.4rem,8.5vw,8.2rem)",
               fontWeight:800,
-              letterSpacing:"-0.04em",
-              lineHeight:0.95,
-              margin:"0 auto 32px",
+              letterSpacing: isMobile ? "-0.03em" : "-0.04em",
+              lineHeight: isMobile ? 1.02 : 0.95,
+              margin: isMobile ? "0 auto 20px" : "0 auto 32px",
               userSelect:"none",
             }}
           >
-            <span style={{ display:"block", color:"#ffffff", marginBottom:"8px" }}>SEE</span>
+            <span style={{ display:"block", color:"#ffffff", marginBottom: isMobile ? "4px" : "8px" }}>SEE</span>
             <span
               ref={heroTextRef}
               style={{
@@ -2556,11 +2766,23 @@ const LandingPage: React.FC = () => {
               BENEATH THE SURFACE.
             </span>
           </h1>
-          <p style={{ fontFamily:"Inter,sans-serif", fontSize:"clamp(17px,2vw,21px)", fontWeight:400, color:"rgba(186,230,253,0.8)", lineHeight:1.65, maxWidth:"680px", margin:"0 auto 44px" }}>
+          <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15.5px" : "clamp(17px,2vw,21px)", fontWeight:400, color:"rgba(186,230,253,0.8)", lineHeight:1.65, maxWidth:"680px", margin: isMobile ? "0 auto 30px" : "0 auto 44px" }}>
             Satellites photograph the entire ocean every day, but they can only see the top millimeter of water. OceanEmbed uses deep learning to turn flat surface snapshots into a 3D underwater temperature map, 1,000 meters deep.
           </p>
           <div style={{ display:"flex", gap:"18px", justifyContent:"center", flexWrap:"wrap" }}>
-            <Link to="/dashboard" className="btn-primary" style={{ padding:"16px 36px", fontSize:"15px" }}>Enter the 3D Visualizer</Link>
+            <Link
+              to="/dashboard"
+              className="btn-primary"
+              style={{
+                padding: isMobile ? "14px 30px" : "16px 36px",
+                fontSize: isMobile ? "14px" : "15px",
+                width: isMobile ? "100%" : "auto",
+                maxWidth: "280px",
+                justifyContent: "center",
+              }}
+            >
+              Enter the 3D Globe
+            </Link>
           </div>
         </div>
       </section>
@@ -2572,7 +2794,7 @@ const LandingPage: React.FC = () => {
           background: "linear-gradient(180deg, rgba(7,54,84,0.76) 0%, rgba(6,40,64,0.86) 60%, rgba(4,28,51,0.94) 100%)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
-          padding: "100px 32px 140px",
+          padding: isMobile ? "70px 18px 90px" : "100px 32px 140px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -2583,9 +2805,9 @@ const LandingPage: React.FC = () => {
       >
         <div style={{ maxWidth:"1140px", width:"100%" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ textAlign:"center", marginBottom:"80px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"16px" }}>The Observation Paradox</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize:"clamp(2.4rem,6.5vw,5.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05 }}>
+            <div style={{ textAlign:"center", marginBottom: isMobile ? "44px" : "80px" }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>The Observation Paradox</div>
+              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,7.5vw,3.2rem)" : "clamp(2.4rem,6.5vw,5.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05 }}>
                 <span style={{ color:"#ffffff" }}>SPACE SEES WIDE. </span>
                 <span className="stroke-frost">SENSORS SEE DEEP.</span>
                 <br />
@@ -2593,29 +2815,29 @@ const LandingPage: React.FC = () => {
               </h2>
             </div>
           </ScrollFlyIn>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))", gap:"40px" }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "24px" : "40px" }}>
             <ScrollFlyIn from="left" delay={100}>
-              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(56,189,248,0.25)", borderRadius:"24px", padding:"36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"18px" }}>
+              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(56,189,248,0.25)", borderRadius: isMobile ? "20px" : "24px", padding: isMobile ? "24px 18px" : "36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"16px" }}>
                   <span style={{ width:6, height:6, borderRadius:"50%", background:"#38bdf8", boxShadow:"0 0 8px #38bdf8", display:"inline-block" }} />
                   <span style={{ fontFamily:"Inter,monospace", fontSize:"11px", fontWeight:600, letterSpacing:"0.06em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase" }}>From 800 km Up - NASA / Copernicus</span>
                 </div>
-                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize:"24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Global daily coverage, but skin-deep.</h3>
-                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"15px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom:"24px" }}>Satellites cover every square kilometer daily, but radar and infrared light stop dead at the water surface.</p>
-                <div style={{ height:"160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(56,189,248,0.2)" }}>
+                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Global daily coverage, but skin-deep.</h3>
+                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"14.5px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom: isMobile ? "18px" : "24px" }}>Satellites cover every square kilometer daily, but radar and infrared light stop dead at the water surface.</p>
+                <div style={{ height: isMobile ? "140px" : "160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(56,189,248,0.2)" }}>
                   <SatelliteScanIllustration />
                 </div>
               </div>
             </ScrollFlyIn>
             <ScrollFlyIn from="right" delay={200}>
-              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(251,191,36,0.25)", borderRadius:"24px", padding:"36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"18px" }}>
+              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(251,191,36,0.25)", borderRadius: isMobile ? "20px" : "24px", padding: isMobile ? "24px 18px" : "36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"16px" }}>
                   <span style={{ width:6, height:6, borderRadius:"50%", background:"#fbbf24", boxShadow:"0 0 8px #fbbf24", display:"inline-block" }} />
                   <span style={{ fontFamily:"Inter,monospace", fontSize:"11px", fontWeight:600, letterSpacing:"0.06em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase" }}>From Inside the Water - ARGO Floats</span>
                 </div>
-                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize:"24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Subsurface truth, but sparse pinpricks.</h3>
-                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"15px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom:"24px" }}>Drifting buoys dive 1,000 meters to measure real underwater heat, but they leave 99% of the Indian Ocean unmeasured on any given day.</p>
-                <div style={{ height:"160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(251,191,36,0.15)" }}>
+                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Subsurface truth, but sparse pinpricks.</h3>
+                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"14.5px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom: isMobile ? "18px" : "24px" }}>Drifting buoys dive 1,000 meters to measure real underwater heat, but they leave 99% of the Indian Ocean unmeasured on any given day.</p>
+                <div style={{ height: isMobile ? "140px" : "160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(251,191,36,0.15)" }}>
                   <ArgoSectionIllustration />
                 </div>
               </div>
@@ -2632,7 +2854,7 @@ const LandingPage: React.FC = () => {
           background: "linear-gradient(180deg, rgba(4,28,51,0.85) 0%, rgba(4,21,39,0.93) 100%)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
-          padding: "120px 32px",
+          padding: isMobile ? "70px 18px" : "120px 32px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -2643,20 +2865,20 @@ const LandingPage: React.FC = () => {
       >
         <div style={{ maxWidth:"1140px", width:"100%", margin:"0 auto" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ textAlign:"center", marginBottom:"64px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"16px" }}>Deep Neural Reconstruction</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize:"clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom:"20px", color:"#ffffff" }}>
+            <div style={{ textAlign:"center", marginBottom: isMobile ? "36px" : "64px" }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Deep Neural Reconstruction</div>
+              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>
                 TURNING FLAT SATELLITES INTO 3D OCEANS.
               </h2>
-              <p style={{ fontFamily:"Inter,sans-serif", fontSize:"18px", color:"rgba(186,230,253,0.75)", maxWidth:"680px", margin:"0 auto", lineHeight:1.6 }}>
+              <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"680px", margin:"0 auto", lineHeight:1.6 }}>
                 How OceanEmbed reconstructs 1,000 meters of vertical ocean thermal structure from surface radar clues in real time.
               </p>
             </div>
           </ScrollFlyIn>
 
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))", gap:"40px", alignItems:"center" }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "28px" : "40px", alignItems:"center" }}>
             <ScrollFlyIn from="left" delay={100}>
-              <div style={{ display:"flex", flexDirection:"column", gap:"16px" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? "12px" : "16px" }}>
                 {RECONSTRUCTION_STAGES.map(s => {
                   const isActive = activeStage === s.stg;
                   return (
@@ -2665,30 +2887,30 @@ const LandingPage: React.FC = () => {
                       onClick={() => setActiveStage(s.stg)}
                       style={{
                         cursor:"pointer",
-                        padding:"22px 26px",
-                        borderRadius:"20px",
+                        padding: isMobile ? "16px 18px" : "22px 26px",
+                        borderRadius: isMobile ? "16px" : "20px",
                         background: isActive ? "rgba(12,74,110,0.38)" : "rgba(8,27,51,0.6)",
                         border: `1px solid ${isActive ? "rgba(56,189,248,0.55)" : "rgba(186,230,253,0.12)"}`,
                         boxShadow: isActive ? "0 12px 35px rgba(2,132,199,0.22)" : "none",
                         transition:"all .3s cubic-bezier(0.16,1,0.3,1)",
                         display:"flex",
-                        gap:"18px",
+                        gap: isMobile ? "14px" : "18px",
                         alignItems:"flex-start"
                       }}
                     >
-                      <div style={{ fontFamily:"Inter,monospace", fontSize:"12px", fontWeight:700, color:isActive ? "#38bdf8" : "rgba(186,230,253,0.4)", background:isActive ? "rgba(56,189,248,0.18)" : "rgba(186,230,253,0.06)", padding:"6px 12px", borderRadius:"8px", flexShrink:0 }}>
+                      <div style={{ fontFamily:"Inter,monospace", fontSize:"12px", fontWeight:700, color:isActive ? "#38bdf8" : "rgba(186,230,253,0.4)", background:isActive ? "rgba(56,189,248,0.18)" : "rgba(186,230,253,0.06)", padding:"6px 10px", borderRadius:"8px", flexShrink:0 }}>
                         {s.num}
                       </div>
                       <div style={{ flex:1 }}>
                         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                          <h4 style={{ fontFamily:"Syne,sans-serif", fontSize:"18px", fontWeight:700, color:isActive ? "#ffffff" : "rgba(186,230,253,0.75)", margin:0 }}>
+                          <h4 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "16px" : "18px", fontWeight:700, color:isActive ? "#ffffff" : "rgba(186,230,253,0.75)", margin:0 }}>
                             {s.label}
                           </h4>
                           <span style={{ fontFamily:"Inter,sans-serif", fontSize:"10px", fontWeight:600, color:isActive ? "#7dd3fc" : "rgba(186,230,253,0.35)", background:"rgba(8,27,51,0.7)", borderRadius:"4px", padding:"2px 8px" }}>
                             {s.badge}
                           </span>
                         </div>
-                        <p style={{ fontFamily:"Inter,sans-serif", fontSize:"14px", color:isActive ? "rgba(186,230,253,0.85)" : "rgba(186,230,253,0.5)", lineHeight:1.55, margin:0 }}>
+                        <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "13px" : "14px", color:isActive ? "rgba(186,230,253,0.85)" : "rgba(186,230,253,0.5)", lineHeight:1.55, margin:0 }}>
                           {s.description}
                         </p>
                       </div>
@@ -2713,7 +2935,7 @@ const LandingPage: React.FC = () => {
           background: "linear-gradient(180deg, rgba(4,21,39,0.88) 0%, rgba(5,26,46,0.95) 100%)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
-          padding: "120px 32px",
+          padding: isMobile ? "70px 18px" : "120px 32px",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -2723,15 +2945,15 @@ const LandingPage: React.FC = () => {
       >
         <div style={{ maxWidth:"1140px", width:"100%" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ marginBottom:"64px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Empirical Validation</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize:"clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom:"20px", color:"#ffffff" }}>TESTED AGAINST REAL OCEAN BUOYS.</h2>
-              <p style={{ fontFamily:"Inter,sans-serif", fontSize:"18px", color:"rgba(186,230,253,0.75)", maxWidth:"640px", lineHeight:1.6 }}>We do not ask scientists to trust a black box. Every prediction is automatically cross-checked against real physical thermometers diving in the Indian Ocean.</p>
+            <div style={{ marginBottom: isMobile ? "36px" : "64px" }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Empirical Validation</div>
+              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>TESTED AGAINST REAL OCEAN BUOYS.</h2>
+              <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"640px", lineHeight:1.6 }}>We do not ask scientists to trust a black box. Every prediction is automatically cross-checked against real physical thermometers diving in the Indian Ocean.</p>
             </div>
           </ScrollFlyIn>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))", gap:"60px", alignItems:"center" }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "32px" : "60px", alignItems:"center" }}>
             <ScrollFlyIn from="left" delay={100}>
-              <div style={{ display:"flex", flexDirection:"column", gap:"44px" }}>
+              <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? "24px" : "44px" }}>
                 {([
                   { val:"> 94%", label:"Pattern match with real depth curves (Correlation)" },
                   { val:"~0.5°C", label:"Average margin of error across 1,000m (RMSE)" },
@@ -2742,7 +2964,7 @@ const LandingPage: React.FC = () => {
                       className="masked-ice"
                       style={{
                         fontFamily: "Syne, sans-serif",
-                        fontSize: "clamp(3.8rem, 7vw, 5.5rem)",
+                        fontSize: isMobile ? "clamp(2.6rem, 10vw, 3.8rem)" : "clamp(3.8rem, 7vw, 5.5rem)",
                         fontWeight: 800,
                         letterSpacing: "-0.03em",
                         lineHeight: 1.05,
@@ -2752,7 +2974,7 @@ const LandingPage: React.FC = () => {
                     >
                       {val}
                     </div>
-                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: "15px", color: "rgba(186, 230, 253, 0.65)", marginTop: "12px" }}>
+                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13.5px" : "15px", color: "rgba(186, 230, 253, 0.65)", marginTop: isMobile ? "6px" : "12px" }}>
                       {label}
                     </div>
                   </div>
@@ -2768,7 +2990,7 @@ const LandingPage: React.FC = () => {
 
       <section
         style={{
-          padding: "120px 32px 80px",
+          padding: isMobile ? "70px 18px 50px" : "120px 32px 80px",
           background: "linear-gradient(180deg, rgba(5,26,46,0.92) 0%, rgba(4,21,39,0.97) 100%)",
           borderTop: "1px solid rgba(186,230,253,0.08)",
           position: "relative",
@@ -2777,22 +2999,22 @@ const LandingPage: React.FC = () => {
       >
         <div style={{ maxWidth:"1140px", margin:"0 auto" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ textAlign:"center", marginBottom:"80px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Real-World Impact</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize:"clamp(2.2rem,5vw,4rem)", fontWeight:800, letterSpacing:"-0.03em", color:"#ffffff" }}>WHY SEEING BENEATH MATTERS.</h2>
+            <div style={{ textAlign:"center", marginBottom: isMobile ? "44px" : "80px" }}>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Real-World Impact</div>
+              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,7vw,3rem)" : "clamp(2.2rem,5vw,4rem)", fontWeight:800, letterSpacing:"-0.03em", color:"#ffffff" }}>WHY SEEING BENEATH MATTERS.</h2>
             </div>
           </ScrollFlyIn>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:"48px" }}>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))", gap: isMobile ? "28px" : "48px" }}>
             {([
               { num:"01", from:"left" as const, title:"Monsoon and Cyclone Forecasting", body:"Subsurface ocean heat is the fuel tank for tropical cyclones and the Indian monsoon. Knowing what is 200 meters below tells meteorologists how much energy a storm will gain." },
               { num:"02", from:"bottom" as const, title:"Sustainable Fisheries", body:"Thermal boundaries underwater dictate where nutrient-rich waters and marine life gather. Fisheries using this data can find productive zones without over-trawling." },
               { num:"03", from:"right" as const, title:"Naval and Subsea Operations", body:"Sound travels differently through warm and cold water layers; accurate 3D thermal maps are vital for underwater navigation, sonar calibration, and submarine routing." },
             ]).map(({ num, from, title, body }) => (
               <ScrollFlyIn key={num} from={from} delay={parseInt(num) * 80}>
-                <div style={{ borderLeft:"1px solid rgba(186,230,253,0.18)", paddingLeft:"28px" }}>
-                  <div className="number-outline-ice" style={{ fontFamily:"Syne,sans-serif", fontSize:"42px", fontWeight:800, marginBottom:"16px" }}>{num}</div>
-                  <h3 style={{ fontFamily:"Syne,sans-serif", fontSize:"20px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>{title}</h3>
-                  <p style={{ fontFamily:"Inter,sans-serif", fontSize:"15px", color:"rgba(186,230,253,0.65)", lineHeight:1.6 }}>{body}</p>
+                <div style={{ borderLeft:"1px solid rgba(186,230,253,0.18)", paddingLeft: isMobile ? "18px" : "28px" }}>
+                  <div className="number-outline-ice" style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "34px" : "42px", fontWeight:800, marginBottom:"12px" }}>{num}</div>
+                  <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "18px" : "20px", fontWeight:700, color:"#ffffff", marginBottom:"10px" }}>{title}</h3>
+                  <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "14px" : "15px", color:"rgba(186,230,253,0.65)", lineHeight:1.6 }}>{body}</p>
                 </div>
               </ScrollFlyIn>
             ))}
@@ -2802,24 +3024,24 @@ const LandingPage: React.FC = () => {
 
       <section
         style={{
-          minHeight: "85vh",
+          minHeight: isMobile ? "70vh" : "85vh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
           textAlign: "center",
           position: "relative",
-          padding: "80px 24px 180px",
+          padding: isMobile ? "70px 18px 60px" : "80px 24px 180px",
           background: "linear-gradient(180deg, rgba(4,21,39,0.96) 0%, #030e1e 60%, #020b16 100%)",
           overflow: "hidden",
           zIndex: 4,
         }}
       >
         <SeabedDunes />
-        <div style={{ position:"absolute", bottom:"80px", left:"50%", transform:"translateX(-50%)", width:"70vw", height:"250px", borderRadius:"50%", background:"radial-gradient(ellipse,rgba(2,132,199,0.2) 0%,rgba(14,116,144,0.08) 40%,transparent 70%)", filter:"blur(50px)", pointerEvents:"none", animation:"horizonGlow 8s ease-in-out infinite" }} />
-        {Array.from({ length: 18 }, (_, i) => {
-          const left = `${5 + (i * 5.5) % 92}%`;
-          const bottom = `${8 + (i * 3.7) % 35}%`;
+        <div style={{ position:"absolute", bottom:"80px", left:"50%", transform:"translateX(-50%)", width: isMobile ? "90vw" : "70vw", height:"250px", borderRadius:"50%", background:"radial-gradient(ellipse,rgba(2,132,199,0.2) 0%,rgba(14,116,144,0.08) 40%,transparent 70%)", filter:"blur(50px)", pointerEvents:"none", animation:"horizonGlow 8s ease-in-out infinite" }} />
+        {Array.from({ length: isMobile ? 8 : 18 }, (_, i) => {
+          const left = `${5 + (i * 11) % 92}%`;
+          const bottom = `${8 + (i * 4) % 35}%`;
           const sz = `${2 + (i % 3)}px`;
           const dur = `${3 + (i % 4)}s`;
           const del = `${(i * 0.35) % 3}s`;
@@ -2842,25 +3064,55 @@ const LandingPage: React.FC = () => {
             />
           );
         })}
-        <div style={{ position:"relative", zIndex:3, maxWidth:"900px" }}>
+        <div style={{ position:"relative", zIndex:3, maxWidth:"900px", width: "100%" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", fontWeight:600, letterSpacing:"0.18em", color:"rgba(186,230,253,0.55)", textTransform:"uppercase", marginBottom:"24px" }}>The Ocean Awaits</div>
-            <h2 style={{ fontFamily:"Syne,sans-serif", fontSize:"clamp(3.5rem,8.5vw,7.5rem)", fontWeight:800, letterSpacing:"-0.04em", lineHeight:0.95, marginBottom:"40px", color:"#ffffff" }}>
+            <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.18em", color:"rgba(186,230,253,0.55)", textTransform:"uppercase", marginBottom: isMobile ? "18px" : "24px" }}>The Ocean Awaits</div>
+            <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(2.4rem, 9.5vw, 4.2rem)" : "clamp(3.5rem,8.5vw,7.5rem)", fontWeight:800, letterSpacing:"-0.04em", lineHeight: isMobile ? 1.02 : 0.95, marginBottom: isMobile ? "28px" : "40px", color:"#ffffff" }}>
               DIVE INTO <span className="masked-ocean-headline">THE DATA.</span>
             </h2>
             <div style={{ display:"flex", gap:"20px", justifyContent:"center", flexWrap:"wrap" }}>
-              <Link to="/dashboard" className="btn-primary" style={{ padding:"18px 44px", fontSize:"16px" }}>Launch OceanEmbed Visualizer</Link>
+              <Link
+                to="/dashboard"
+                className="btn-primary"
+                style={{
+                  padding: isMobile ? "15px 30px" : "18px 44px",
+                  fontSize: isMobile ? "14px" : "16px",
+                  width: isMobile ? "100%" : "auto",
+                  maxWidth: "300px",
+                  justifyContent: "center",
+                }}
+              >
+                Launch 3D Globe
+              </Link>
             </div>
           </ScrollFlyIn>
         </div>
-        <footer style={{ position:"absolute", bottom:"24px", left:"40px", right:"40px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:"1px solid rgba(186,230,253,0.08)", paddingTop:"20px", flexWrap:"wrap", gap:"12px", zIndex:3 }}>
+        <footer
+          style={{
+            position: isMobile ? "relative" : "absolute",
+            bottom: isMobile ? "auto" : "24px",
+            left: isMobile ? "auto" : "40px",
+            right: isMobile ? "auto" : "40px",
+            marginTop: isMobile ? "54px" : "0",
+            width: isMobile ? "100%" : "auto",
+            display: "flex",
+            justifyContent: isMobile ? "center" : "space-between",
+            alignItems: "center",
+            flexDirection: isMobile ? "column" : "row",
+            borderTop: "1px solid rgba(186,230,253,0.08)",
+            paddingTop: "20px",
+            flexWrap: "wrap",
+            gap: isMobile ? "16px" : "12px",
+            zIndex: 3
+          }}
+        >
           <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
             <img src={Logo} alt="OceanEmbed" style={{ width:"20px", height:"20px", opacity:0.7 }} />
             <span style={{ fontFamily:"Syne,sans-serif", fontSize:"14px", fontWeight:700, color:"rgba(186,230,253,0.7)" }}>OceanEmbed</span>
             <span style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"rgba(186,230,253,0.35)", marginLeft:"8px" }}>Subsurface Ocean Intelligence</span>
           </div>
           <div style={{ display:"flex", gap:"24px" }}>
-            {([{to:"/dashboard",label:"Visualizer"},{to:"/login",label:"Sign In"},{to:"/signup",label:"Sign Up"}]).map(({ to, label }) => (
+            {([{to:"/dashboard",label:"3D Globe"},{to:"/login",label:"Sign In"},{to:"/signup",label:"Sign Up"}]).map(({ to, label }) => (
               <Link key={to} to={to} style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"rgba(186,230,253,0.4)", textDecoration:"none" }}>{label}</Link>
             ))}
           </div>
