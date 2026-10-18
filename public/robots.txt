@@ -3,5 +3,5 @@ User-agent: *
 Allow: /
 
 # Host & Sitemap definition for search engine crawlers
-Host: https://oceanembed.org
-Sitemap: https://oceanembed.org/sitemap.xml
+Host: https://ocean-embed-hacktopus404.vercel.app
+Sitemap: https://ocean-embed-hacktopus404.vercel.app/sitemap.xml
