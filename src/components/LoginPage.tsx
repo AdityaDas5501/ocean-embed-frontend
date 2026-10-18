@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Lock, Eye, EyeOff, MailCheck, KeyRound, ArrowLeft } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { API_BASE_URL, setInMemoryToken } from '../services/api';
 import { signInWithGoogle, signInFirebaseEmail, sendVerificationEmail, signOutUser, sendPasswordReset, getFirebaseIdToken, setAuthChangeSuppressed } from '../services/firebase';
+import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
-interface LoginPageProps {
-  onLogin: () => void;
-  onNavigateToSignup: () => void;
-}
+const LoginPage: React.FC = () => {
+  const { isAuthenticated, login } = useAuth();
+  const navigate = useNavigate();
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) => {
+  // Already logged-in visitors have no business here — send them straight to the dashboard.
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -150,7 +157,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
         sessionStorage.removeItem('token');
       }
 
-      onLogin();
+      login({
+        name: data.user?.name || data.user?.full_name || email.split('@')[0],
+        email: data.user?.email || email,
+        role: data.user?.role || 'Lead Oceanographer',
+      });
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -404,8 +416,14 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
               setError('');
               setIsGoogleLoading(true);
               try {
-                await signInWithGoogle();
-                onLogin();
+                const googleUser = await signInWithGoogle();
+                login({
+                  name: googleUser.displayName || 'Ocean Explorer',
+                  email: googleUser.email || '',
+                  photoURL: googleUser.photoURL || undefined,
+                  role: 'Research Scientist',
+                });
+                navigate('/dashboard');
               } catch (err: any) {
                 if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
                   setError(err?.message || 'Google sign-in failed. Please try again.');
@@ -429,7 +447,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
           </button>
 
           <p style={{ textAlign: 'center', marginTop: '1.5rem', marginBottom: 0, fontSize: '0.875rem', color: '#D1D5DB' }}>
-            Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToSignup(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Sign Up</a>
+            Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/signup'); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Sign Up</a>
           </p>
           </>
         )}

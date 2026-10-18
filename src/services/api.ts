@@ -85,8 +85,8 @@ export class ApiDataError extends Error {
 
 /** Thrown when the backend is unreachable (network failure / timeout). */
 export class NetworkError extends Error {
-  constructor(cause?: unknown) {
-    super('Backend is unreachable. Check your network connection.');
+  constructor(cause?: unknown, message?: string) {
+    super(message || 'Backend is unreachable. Check your network connection.');
     this.name = 'NetworkError';
     if (cause instanceof Error) {
       this.stack = cause.stack;
@@ -122,24 +122,25 @@ async function fetchWithTracing(url: string, options: RequestInit = {}, traceId?
 }
 
 async function handleApiError(response: Response, defaultErrorPayload: Partial<ErrorResponse>): Promise<never> {
+  let errorData: any = null;
+  try {
+    errorData = await response.json();
+  } catch {
+    // response is not JSON
+  }
+
   if (response.status === 404 || response.status === 422) {
     let payload: ErrorResponse;
-    try {
-      const data = await response.json();
-      // Handle HTTPValidationError from 422
-      if (response.status === 422 && data.detail && Array.isArray(data.detail) && data.detail.length > 0) {
-        payload = {
-          error_code: `HTTP_422`,
-          message: data.detail[0].msg,
-          lat: defaultErrorPayload.lat || 0,
-          lon: defaultErrorPayload.lon || 0,
-          date: defaultErrorPayload.date || ''
-        };
-      } else {
-        payload = data as ErrorResponse;
-      }
-    } catch {
+    if (response.status === 422 && errorData?.detail && Array.isArray(errorData.detail) && errorData.detail.length > 0) {
       payload = {
+        error_code: `HTTP_422`,
+        message: errorData.detail[0].msg,
+        lat: defaultErrorPayload.lat || 0,
+        lon: defaultErrorPayload.lon || 0,
+        date: defaultErrorPayload.date || ''
+      };
+    } else {
+      payload = (errorData as ErrorResponse) || {
         error_code: `HTTP_${response.status}`,
         message: response.statusText || 'No data available.',
         lat: defaultErrorPayload.lat || 0,
@@ -149,7 +150,19 @@ async function handleApiError(response: Response, defaultErrorPayload: Partial<E
     }
     throw new ApiDataError(response.status, payload);
   }
-  throw new NetworkError(new Error(`Unexpected status ${response.status}: ${response.statusText}`));
+
+  if (response.status === 401 || response.status === 403) {
+    const msg = errorData?.message || 'Authentication required. Please sign in to access forecasts.';
+    throw new NetworkError(new Error(msg), msg);
+  }
+
+  if (response.status === 503) {
+    const msg = errorData?.detail || errorData?.message || 'AI Model is not loaded on the backend (LOAD_MODEL=false).';
+    throw new NetworkError(new Error(msg), msg);
+  }
+
+  const msg = errorData?.message || errorData?.detail || `Unexpected server error (${response.status}): ${response.statusText}`;
+  throw new NetworkError(new Error(msg), msg);
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────

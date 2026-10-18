@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Lock, Mail, Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react';
 import bgImage from '../assets/images/Signin_Background.webp';
 import Logo from '../assets/logo.svg';
 import { signInWithGoogle, createFirebaseUser, sendVerificationEmail, signInFirebaseEmail, signOutUser, setAuthChangeSuppressed } from '../services/firebase';
+import { useAuth } from '../context/AuthContext';
 import './LoginPage.css'; // Reusing the exact same glassmorphism styles
 
-interface SignupPageProps {
-  onSignup: () => void;
-  onNavigateToLogin: () => void;
-}
-
-const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) => {
+const SignupPage: React.FC = () => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -173,7 +172,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
           {/* Back to Login */}
           <p style={{ fontSize: '0.875rem', color: '#D1D5DB', margin: 0 }}>
             Already verified?{' '}
-            <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToLogin(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>
               Log in
             </a>
           </p>
@@ -314,7 +313,8 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
             setIsGoogleLoading(true);
             try {
               await signInWithGoogle();
-              onSignup();
+              login();
+              navigate('/dashboard');
             } catch (err: any) {
               if (err?.code !== 'auth/popup-closed-by-user' && err?.code !== 'auth/cancelled-popup-request') {
                 setError(err?.message || 'Google sign-in failed. Please try again.');
@@ -338,7 +338,7 @@ const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) 
         </button>
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', marginBottom: 0, fontSize: '0.875rem', color: '#D1D5DB' }}>
-          Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToLogin(); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Login</a>
+          Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/login'); }} className="text-link" style={{ color: '#FFFFFF', fontWeight: 500 }}>Login</a>
         </p>
         </div>
       )}

@@ -1,0 +1,7 @@
+# robots.txt for OceanEmbed
+User-agent: *
+Allow: /
+
+# Host & Sitemap definition for search engine crawlers
+Host: https://oceanembed.org
+Sitemap: https://oceanembed.org/sitemap.xml
