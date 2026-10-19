@@ -731,7 +731,7 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
 
         {/* Dynamic Mode Header Tag */}
         <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '2px 10px', fontSize: '9.5px', color: metric === 'Currents' ? '#fde725' : '#d4a5a5', fontWeight: 600, letterSpacing: '0.5px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-          {metric === 'Currents' ? 'GEOSTROPHIC OCEAN GYRE' : 'NORTHEAST MONSOON WINDS'}
+          {metric === 'Currents' ? 'OCEAN CURRENTS & CIRCULATION' : 'MONSOON WINDS & AIRFLOW'}
         </div>
 
         {/* Geographic bounds */}
@@ -830,8 +830,8 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
               </h3>
               <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
                 {effectiveTab === 'magnitude'
-                  ? '14-Day Historical Trend for Region: 10.0°N - 15.0°N, 65.0°E - 70.0°E'
-                  : 'Vector Field (0.25° Resolution) for Region: 10.0°N - 15.0°N, 65.0°E - 70.0°E'}
+                  ? '14-Day Historical Trend for Arabian Sea: 10°N - 15°N, 65°E - 70°E'
+                  : 'Live Flow Direction & Speed for Arabian Sea: 10°N - 15°N, 65°E - 70°E'}
               </div>
             </div>
 
@@ -934,14 +934,14 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
             <div>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#8bb6d6', letterSpacing: '0.4px' }}>
-                Subsurface 3D Profile — 15 Standard Depths
+                3D Underwater Temperature Slices
               </h3>
               <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                Physics-informed neural volumetric grids [0m to 1,000m depth]
+                Estimated water temperatures across 15 standard depths from 0m to 1,000m
               </div>
             </div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
-              Volumetric Stratification
+              15 Depth Layers
             </div>
           </div>
 
@@ -1072,7 +1072,7 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
                   letterSpacing: '0.3px',
                 }}
               >
-                15 STANDARD DEPTHS • 0m TO 1,000m
+                15 DEPTH LAYERS • 0m TO 1,000m
               </div>
               <div
                 style={{
@@ -1108,7 +1108,7 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  Thermocline Surface
+                  Underwater Temperature Map
                 </h3>
                 <span style={{
                   fontSize: '11px',
@@ -1120,11 +1120,11 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
                   borderRadius: '6px',
                   letterSpacing: '0.3px'
                 }}>
-                  100m Depth
+                  100m Depth Layer
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: 'rgba(186, 230, 253, 0.65)', lineHeight: 1.4 }}>
-                3D Topographic Coordinate Query &bull; Region: 10.0°N–15.0°N, 65.0°E–70.0°E
+                Interactive 3D thermal surface &bull; Arabian Sea: 10°N–15°N, 65°E–70°E
               </div>
             </div>
 
@@ -1215,10 +1215,10 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
               border: '1px solid rgba(56, 189, 248, 0.2)', backdropFilter: 'blur(6px)', pointerEvents: 'none', zIndex: 10
             }}>
               <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
-                THERMOCLINE LAYER (100m)
+                UNDERWATER LAYER (100m)
               </div>
               <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.65)', marginTop: '3px', display: 'flex', gap: '12px' }}>
-                <span>Mean: {THERMOCLINE_GRID_DATA.meanTemp.toFixed(1)}°C</span>
+                <span>Average: {THERMOCLINE_GRID_DATA.meanTemp.toFixed(1)}°C</span>
                 <span style={{ color: '#00ff88' }}>Point: {THERMOCLINE_GRID_DATA.centerT.toFixed(2)}°C</span>
               </div>
             </div>
@@ -1241,69 +1241,142 @@ const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ acti
 };
 
 const SatelliteScanIllustration: React.FC = () => (
-  <svg viewBox="0 0 280 160" fill="none" style={{ width: "100%", height: "100%" }}>
-    {([[20,18],[60,10],[100,22],[150,8],[200,15],[240,25],[270,10]] as [number,number][]).map(([x,y],i) => (
-      <circle key={i} cx={x} cy={y} r="1.2" fill="rgba(186,230,253,0.5)" />
-    ))}
-    <path d="M30,90 Q140,30 250,90" fill="none" stroke="rgba(56,189,248,0.35)" strokeWidth="1" strokeDasharray="6 4" />
-    <g transform="translate(138, 42)">
-      <rect x="-14" y="-4" width="10" height="8" rx="1" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.7)" strokeWidth="1" />
-      <rect x="4" y="-4" width="10" height="8" rx="1" fill="rgba(56,189,248,0.15)" stroke="rgba(56,189,248,0.7)" strokeWidth="1" />
-      <rect x="-4" y="-5" width="8" height="10" rx="1" fill="rgba(14,116,144,0.3)" stroke="rgba(186,230,253,0.8)" strokeWidth="1.2" />
-      <polygon points="-2,5 2,5 10,40 -10,40" fill="rgba(56,189,248,0.18)" />
-    </g>
-    <line x1="10" y1="100" x2="270" y2="100" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" />
-    <text x="140" y="96" textAnchor="middle" fill="rgba(186,230,253,0.6)" fontSize="8" fontFamily="Inter, monospace">Surface penetration limit: 1 mm</text>
-    {[0, 1, 2].map(i => {
-      const y1 = 103 + i * 6;
-      const qy1 = 99 + i * 6;
-      const qx1 = 70 + i * 20;
-      const qy2 = 107 + i * 6;
-      const qx2 = 210 - i * 15;
-      const pathD = `M10,${y1} Q${qx1},${qy1} 140,${y1} Q${qx2},${qy2} 270,${y1}`;
-      const strokeColor = `rgba(56,189,248,${0.3 - i * 0.07})`;
-      return (
-        <path key={i} d={pathD} fill="none" stroke={strokeColor} strokeWidth="0.8" />
-      );
-    })}
-    <rect x="10" y="100" width="260" height="55" fill="rgba(8,27,51,0.6)" rx="2" />
-    <text x="140" y="120" textAnchor="middle" fill="rgba(14,116,144,0.6)" fontSize="9" fontFamily="Inter, monospace">UNSEEN BELOW</text>
-    <text x="140" y="133" textAnchor="middle" fill="rgba(56,189,248,0.35)" fontSize="8" fontFamily="Inter, monospace">0 to 1000m temperature structure</text>
-  </svg>
+  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #020b18 0%, #051a36 55%, #020c1c 100%)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    {/* Subtle Starfield & Coordinate Crosshairs */}
+    <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(1px 1px at 30px 20px, rgba(255,255,255,0.45) 1px, transparent 0), radial-gradient(1px 1px at 110px 50px, rgba(186,230,253,0.3) 1px, transparent 0), radial-gradient(1px 1px at 210px 25px, rgba(255,255,255,0.4) 1px, transparent 0), radial-gradient(1px 1px at 320px 60px, rgba(186,230,253,0.3) 1px, transparent 0)", backgroundSize: "360px 100px", pointerEvents: "none" }} />
+
+    {/* Precision Orbit Path Passing Directly Through Satellite Core */}
+    <svg viewBox="0 0 1000 100" preserveAspectRatio="none" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100px", pointerEvents: "none", zIndex: 1 }}>
+      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="rgba(56, 189, 248, 0.12)" strokeWidth="3" filter="blur(2px)" />
+      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="rgba(56, 189, 248, 0.38)" strokeWidth="1.2" strokeDasharray="7 6" />
+    </svg>
+
+    {/* Real Satellite Wireframe Asset with Attached Blue Radar Swath */}
+    <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "center", paddingTop: "14px" }}>
+      <div className="satellite-float-anim" style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
+        {/* Satellite Wireframe Image */}
+        <img
+          src={satelliteSrc}
+          alt="Sentinel-6 Radar Altimeter"
+          style={{ width: "115px", height: "auto", filter: "drop-shadow(0 0 8px rgba(56, 189, 248, 0.35))", position: "relative", zIndex: 3 }}
+        />
+
+        {/* Subtle, Soft Radar Highlight Emanating Directly From Satellite */}
+        <div
+          style={{
+            position: "absolute",
+            top: "40px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "320px",
+            height: "115px",
+            pointerEvents: "none",
+            zIndex: 1,
+          }}
+        >
+          <svg viewBox="0 0 320 115" style={{ width: "100%", height: "100%" }}>
+            <defs>
+              <linearGradient id="satNadirBeamGradSubtle" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
+                <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.1" />
+                <stop offset="85%" stopColor="#38bdf8" stopOpacity="0.03" />
+                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
+              </linearGradient>
+            </defs>
+
+            {/* Soft Translucent Conical Swath */}
+            <polygon
+              points="155,0 165,0 305,115 15,115"
+              fill="url(#satNadirBeamGradSubtle)"
+            />
+
+            {/* Delicate Hairline Guide Rays */}
+            <line x1="155" y1="0" x2="15" y2="115" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" strokeDasharray="3 3" />
+            <line x1="165" y1="0" x2="305" y2="115" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" strokeDasharray="3 3" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    {/* Ocean Surface Boundary & Reflection */}
+    <div style={{ marginTop: "auto", position: "relative", zIndex: 3 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px 4px" }}>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 700, color: "#38bdf8", letterSpacing: "0.08em" }}>
+          OCEAN SURFACE (1.0 mm)
+        </span>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 600, color: "#f87171", letterSpacing: "0.06em" }}>
+          RADAR BOUNCES OFF WATER
+        </span>
+      </div>
+
+      {/* Surface Glowing Horizon Line */}
+      <div style={{ height: "2px", width: "100%", background: "linear-gradient(90deg, rgba(56,189,248,0.2) 0%, #38bdf8 50%, rgba(56,189,248,0.2) 100%)", boxShadow: "0 0 8px #38bdf8" }} />
+
+      {/* Dark Unseen Ocean Depth */}
+      <div style={{ height: "46px", background: "linear-gradient(180deg, #04101e 0%, #01060e 100%)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 600, color: "rgba(186, 230, 253, 0.35)", letterSpacing: "0.14em" }}>
+          UNSEEN OCEAN DEPTH (0 – 1,000m)
+        </span>
+      </div>
+    </div>
+  </div>
 );
 
 const ArgoSectionIllustration: React.FC = () => (
-  <svg viewBox="0 0 280 160" fill="none" style={{ width: "100%", height: "100%" }}>
-    <defs>
-      <linearGradient id="waterGrad2" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#0c4a6e" stopOpacity="0.5" />
-        <stop offset="100%" stopColor="#041527" stopOpacity="0.9" />
-      </linearGradient>
-    </defs>
-    <rect x="0" y="0" width="280" height="160" rx="4" fill="url(#waterGrad2)" />
-    <path d="M0,18 Q35,14 70,18 Q105,22 140,18 Q175,14 210,18 Q245,22 280,18" fill="none" stroke="rgba(56,189,248,0.6)" strokeWidth="1.5" />
-    <text x="140" y="12" textAnchor="middle" fill="rgba(186,230,253,0.5)" fontSize="7" fontFamily="Inter, monospace">SURFACE</text>
-    {([{y:18,label:"0m"},{y:55,label:"100m"},{y:90,label:"250m"},{y:120,label:"500m"},{y:152,label:"1000m"}]).map(({y,label}) => (
-      <g key={label}>
-        <line x1="8" y1={y} x2="18" y2={y} stroke="rgba(186,230,253,0.35)" strokeWidth="0.7" />
-        <text x="20" y={y+3} fill="rgba(186,230,253,0.4)" fontSize="7" fontFamily="Inter, monospace">{label}</text>
-      </g>
-    ))}
-    {[70, 140, 210].map((cx, i) => {
-      const cy = 18 + (0.35 + i * 0.18) * 134;
-      return (
-        <g key={i}>
-          <line x1={cx} y1="18" x2={cx} y2={cy} stroke="rgba(186,230,253,0.3)" strokeWidth="0.7" strokeDasharray="3 2" />
-          <ellipse cx={cx} cy={cy} rx="9" ry="5" fill="rgba(251,191,36,0.85)" />
-          <circle cx={cx} cy={cy} r="14" fill="none" stroke="rgba(251,191,36,0.3)" strokeWidth="0.8">
-            <animate attributeName="r" values="9;22;9" dur={`${2 + i * 0.4}s`} repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.6;0;0.6" dur={`${2 + i * 0.4}s`} repeatCount="indefinite" />
-          </circle>
-          <text x={cx+12} y={cy+4} fill="rgba(251,191,36,0.8)" fontSize="7.5" fontFamily="Inter, monospace" fontWeight="600">Float {i+1}</text>
-        </g>
-      );
-    })}
-  </svg>
+  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #051c36 0%, #031022 55%, #01060e 100%)", overflow: "hidden", display: "flex" }}>
+    {/* Left Depth Scale */}
+    <div style={{ width: "72px", borderRight: "1px solid rgba(251, 191, 36, 0.15)", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 8px", boxSizing: "border-box", zIndex: 2, background: "rgba(2, 10, 22, 0.55)" }}>
+      {[
+        { d: "0 m", label: "SURFACE" },
+        { d: "200 m", label: "THERMOCLINE" },
+        { d: "500 m", label: "MID-DEPTH" },
+        { d: "1,000 m", label: "ABYSS" },
+      ].map((mark, i) => (
+        <div key={i} style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 700, color: "#fbbf24" }}>{mark.d}</span>
+          <span style={{ fontFamily: "Inter, monospace", fontSize: "7px", color: "rgba(253, 230, 138, 0.45)", letterSpacing: "0.04em" }}>{mark.label}</span>
+        </div>
+      ))}
+    </div>
+
+    {/* Center Water Column */}
+    <div style={{ flex: 1, position: "relative", height: "100%", overflow: "hidden" }}>
+      {/* 10-Day Profile Trajectory Curve */}
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+        <path d="M 40,16 C 80,35 130,70 130,140 S 175,155 210,16" fill="none" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="1.2" strokeDasharray="3 3" />
+
+        {/* Sonar Acoustic Pulse Rings */}
+        <circle cx="130" cy="98" r="14" fill="none" stroke="rgba(251, 191, 36, 0.35)" strokeWidth="0.8">
+          <animate attributeName="r" values="8;30;8" dur="3.2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.75;0;0.75" dur="3.2s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="130" cy="98" r="26" fill="none" stroke="rgba(251, 191, 36, 0.18)" strokeWidth="0.8">
+          <animate attributeName="r" values="14;44;14" dur="3.2s" repeatCount="indefinite" />
+          <animate attributeName="opacity" values="0.5;0;0.5" dur="3.2s" repeatCount="indefinite" />
+        </circle>
+
+        {/* Surface Satellite Transmission Beam */}
+        <line x1="40" y1="16" x2="40" y2="4" stroke="#fbbf24" strokeWidth="1.5" />
+        <circle cx="40" cy="16" r="3" fill="#fbbf24" />
+      </svg>
+
+      {/* ARGO Float Asset */}
+      <div className="argo-float-anim" style={{ position: "absolute", left: "118px", top: "48px", zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <img
+          src={argoSrc}
+          alt="ARGO Profiling CTD Float"
+          style={{ height: "80px", width: "auto", filter: "drop-shadow(0 0 12px rgba(251, 191, 36, 0.55))" }}
+        />
+      </div>
+
+      {/* Floating Status Pill */}
+      <div style={{ position: "absolute", right: "12px", bottom: "10px", zIndex: 4, background: "rgba(2, 10, 22, 0.85)", border: "1px solid rgba(251, 191, 36, 0.25)", borderRadius: "4px", padding: "3px 8px" }}>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "8px", fontWeight: 600, color: "rgba(253, 230, 138, 0.85)", letterSpacing: "0.06em" }}>
+          TEMPERATURE ACCURACY: ±0.002°C
+        </span>
+      </div>
+    </div>
+  </div>
 );
 
 const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
@@ -1369,7 +1442,7 @@ const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
           <rect x="75" y="69" width="410" height="102" fill="rgba(56,189,248,0.03)" pointerEvents="none" />
           <line x1="73" y1="69" x2="73" y2="171" stroke="#38bdf8" strokeWidth="2" strokeDasharray="3 3" opacity="0.55" />
           <text x="480" y="125" fill="rgba(56,189,248,0.5)" fontSize="9" fontWeight="600" textAnchor="end" letterSpacing="0.08em" fontFamily="Inter, sans-serif">
-            THERMOCLINE DROP (100m – 400m)
+            RAPID COOLING ZONE (100m – 400m)
           </text>
 
           {/* Depth Grid Lines & Y-Axis Labels */}
@@ -1485,10 +1558,10 @@ const LiveDepthProfileGraph: React.FC<{ inView: boolean }> = ({ inView }) => {
       </div>
 
       <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(186,230,253,0.1)", paddingTop: "14px", flexWrap: "wrap", gap: "8px" }}>
-        <span style={{ fontFamily: "Inter,sans-serif", fontSize: "11px", color: "rgba(186,230,253,0.5)" }}>Arabian Sea Sector (WMO 2901548)</span>
+        <span style={{ fontFamily: "Inter,sans-serif", fontSize: "11px", color: "rgba(186,230,253,0.5)" }}>Arabian Sea Test Buoy (ID: 2901548)</span>
         <span style={{ fontFamily: "Inter,sans-serif", fontSize: "11px", fontWeight: 600, color: "#34d399", display: "flex", alignItems: "center", gap: "6px" }}>
           <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", boxShadow: "0 0 6px #34d399", display: "inline-block" }} />
-          Correlation: 97.2% | RMSE: 0.38°C
+          Accuracy Match: 97.2% | Margin of Error: ±0.38°C
         </span>
       </div>
     </div>
@@ -1793,11 +1866,11 @@ const OceanInteractiveOverlay: React.FC = () => {
           if (lock > 0.3) {
             ctx.font = 'bold 8.5px "Inter", monospace';
             ctx.fillStyle = "#38bdf8";
-            ctx.fillText("[LOCK-ON ACQUIRED]", tagX, tagY + 11);
+            ctx.fillText("EXPLORE REGION", tagX, tagY + 11);
           } else {
             ctx.font = '8px "Inter", monospace';
             ctx.fillStyle = "rgba(125, 211, 252, 0.45)";
-            ctx.fillText("SAT-07 // RECON", tagX, tagY + 11);
+            ctx.fillText("COORDINATE VIEW", tagX, tagY + 11);
           }
 
           ctx.restore();
@@ -1882,236 +1955,27 @@ const RECONSTRUCTION_STAGES = [
     num: "01",
     label: "Surface Fingerprints",
     title: "Reading Surface Radar Clues",
-    description: "Subsurface heat anomalies slightly elevate sea surface height and alter surface currents. OceanEmbed ingests 7 daily satellite streams from NASA and Copernicus.",
-    badge: "4 Surface Inputs"
+    description: "Warm underwater water expands, creating tiny bumps on the ocean surface that satellite radars can detect. OceanEmbed collects live satellite data from NASA and European space agencies daily.",
+    badge: "Satellite Feeds"
   },
   {
     stg: 2,
     num: "02",
-    label: "15 Standard Depths",
-    title: "Deep Neural Layering",
-    description: "A physics-informed deep neural network translates 2D surface anomalies into 3D volumetric thermal grids across 15 standard depths down to 1,000 meters.",
+    label: "Underwater Layers",
+    title: "AI Physics Prediction",
+    description: "Our AI model uses fluid physics laws to calculate how surface heat spreads downward, predicting water temperature across 15 standard depths down to 1,000 meters.",
     badge: "0m to 1,000m Depth"
   },
   {
     stg: 3,
     num: "03",
-    label: "3D Coordinate Query",
-    title: "Coordinate Point Inspection",
-    description: "Query exact temperatures, depth gradients, and confidence intervals at any point in the Indian Ocean basin with instant 3D slicing.",
+    label: "Interactive 3D Map",
+    title: "Click Any Ocean Coordinate",
+    description: "Click anywhere on the globe to inspect real-time temperatures, depth curves, and current flow with instant 3D visualization.",
     badge: "Real-Time Query",
   },
 ];
 
-const ArgoFloatTelemetry: React.FC<{ sectionRef: React.RefObject<HTMLElement | null> }> = React.memo(({ sectionRef }) => {
-  const isMobile = useIsMobile(768);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const currentY = useRef(0);
-  const targetY = useRef(0);
-  const currentOpacity = useRef(0);
-  const targetOpacity = useRef(0);
-  const isRunning = useRef(false);
-
-  // Wheel speed dampener: makes the scroll slower when the argo illustration is visible in the viewport
-  useEffect(() => {
-    if (isMobile) return;
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) return;
-      if (!sectionRef.current) return;
-      const rect = sectionRef.current.getBoundingClientRect();
-      const windowH = window.innerHeight;
-
-      // Active when the section containing the argo illustration is in the active viewport
-      const isVisibleInViewport = rect.top < windowH * 0.78 && rect.bottom > windowH * 0.22;
-
-      // Smooth exit bounds: don't trap when user scrolls up out of top or down out of bottom
-      const isExitingTop = rect.top > 0 && e.deltaY < 0;
-      const isExitingBottom = rect.bottom < windowH && e.deltaY > 0;
-
-      if (isVisibleInViewport && !isExitingTop && !isExitingBottom) {
-        e.preventDefault();
-        const delta = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * windowH : e.deltaY;
-        // Slow down scroll by ~55% (speed factor 0.45)
-        window.scrollBy({
-          top: delta * 0.45,
-          left: 0,
-          behavior: "instant" as any,
-        });
-      }
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-    return () => window.removeEventListener("wheel", onWheel);
-  }, [sectionRef, isMobile]);
-
-  // Viewport tracking & slow downward parallax glide
-  useEffect(() => {
-    if (isMobile) return;
-    const computeTarget = () => {
-      if (!sectionRef.current) return;
-      const rect = sectionRef.current.getBoundingClientRect();
-      const windowH = window.innerHeight;
-
-      // Section visibility in viewport
-      const inView = rect.bottom > 40 && rect.top < windowH - 40;
-      if (!inView) {
-        targetOpacity.current = 0;
-        return;
-      }
-
-      // Smooth fade in as it enters, smooth fade out as it leaves
-      const enterDist = windowH - rect.top;
-      const leaveDist = rect.bottom;
-      const fadeIn = Math.min(1, enterDist / 220);
-      const fadeOut = Math.min(1, leaveDist / 220);
-      targetOpacity.current = Math.min(fadeIn, fadeOut) * 0.85;
-
-      // Scroll progress through the section
-      const totalDist = rect.height + windowH;
-      const progress = clamp((windowH - rect.top) / totalDist, 0, 1);
-
-      // Slow scroll down parallax:
-      // Pinned in viewport at top: 50%, drifting gently downwards by ±80px (160px total)
-      // across the entire duration of the section
-      targetY.current = (progress - 0.5) * 160;
-    };
-
-    let animId: number;
-    const updateLerp = () => {
-      const diffY = targetY.current - currentY.current;
-      const diffOp = targetOpacity.current - currentOpacity.current;
-
-      const needsUpdate = Math.abs(diffY) > 0.1 || Math.abs(diffOp) > 0.01;
-
-      if (needsUpdate) {
-        currentY.current += diffY * 0.12;
-        currentOpacity.current += diffOp * 0.15;
-
-        if (containerRef.current) {
-          containerRef.current.style.transform = `translate3d(0, calc(-50% + ${currentY.current.toFixed(2)}px), 0)`;
-          containerRef.current.style.opacity = currentOpacity.current.toFixed(3);
-          containerRef.current.style.visibility = currentOpacity.current > 0.01 ? "visible" : "hidden";
-        }
-        animId = requestAnimationFrame(updateLerp);
-      } else {
-        currentY.current = targetY.current;
-        currentOpacity.current = targetOpacity.current;
-        if (containerRef.current) {
-          containerRef.current.style.transform = `translate3d(0, calc(-50% + ${targetY.current.toFixed(2)}px), 0)`;
-          containerRef.current.style.opacity = targetOpacity.current.toFixed(3);
-          containerRef.current.style.visibility = targetOpacity.current > 0.01 ? "visible" : "hidden";
-        }
-        isRunning.current = false;
-      }
-    };
-
-    const startLoop = () => {
-      if (!isRunning.current) {
-        isRunning.current = true;
-        animId = requestAnimationFrame(updateLerp);
-      }
-    };
-
-    const onScroll = () => {
-      computeTarget();
-      startLoop();
-    };
-
-    computeTarget();
-    currentY.current = targetY.current;
-    currentOpacity.current = targetOpacity.current;
-    if (containerRef.current) {
-      containerRef.current.style.transform = `translate3d(0, calc(-50% + ${targetY.current.toFixed(2)}px), 0)`;
-      containerRef.current.style.opacity = targetOpacity.current.toFixed(3);
-      containerRef.current.style.visibility = targetOpacity.current > 0.01 ? "visible" : "hidden";
-    }
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll, { passive: true });
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [sectionRef, isMobile]);
-
-  if (isMobile) return null;
-
-  return (
-    <div
-      ref={containerRef}
-      className="argo-float-telemetry"
-      style={{
-        position: "fixed",
-        right: "clamp(24px, 4vw, 64px)",
-        top: "50%",
-        transform: "translate3d(0, -50%, 0)",
-        width: "clamp(55px, 5.2vw, 75px)",
-        zIndex: 20,
-        pointerEvents: "none",
-        willChange: "transform, opacity",
-        userSelect: "none",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        opacity: 0,
-        visibility: "hidden",
-      }}
-    >
-      {/* Ambient Depth Glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: "40%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "130px",
-          height: "280px",
-          background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.16) 0%, rgba(2, 132, 199, 0.05) 55%, transparent 75%)",
-          filter: "blur(32px)",
-          borderRadius: "9999px",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
-
-      <div className="argo-float-anim" style={{ width: "100%", position: "relative" }}>
-        {/* White wire extending from above, terminating at the back/top of the ARGO float without passing through or past it */}
-        <div
-          style={{
-            position: "absolute",
-            left: "50%",
-            bottom: "calc(100% - 22px)",
-            height: "75vh",
-            width: "1.5px",
-            transform: "translateX(-50%)",
-            background: "linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 25%, rgba(255, 255, 255, 0.95) 100%)",
-            boxShadow: "0 0 6px rgba(255, 255, 255, 0.5), 0 0 12px rgba(56, 189, 248, 0.25)",
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-
-        <img
-          src={argoSrc}
-          alt="ARGO Profiling Float"
-          style={{
-            width: "100%",
-            height: "auto",
-            display: "block",
-            mixBlendMode: "screen",
-            opacity: 0.85,
-            position: "relative",
-            zIndex: 2,
-            filter: "drop-shadow(0 0 22px rgba(56, 189, 248, 0.25))",
-            transition: "opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
-        />
-      </div>
-    </div>
-  );
-});
 
 const PersistentGlobeCanvas: React.FC = React.memo(() => {
   return (
@@ -2377,11 +2241,12 @@ const LandingPage: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Interactive Light Blue Gradient for "BENEATH THE SURFACE."
+  // Interactive Ocean Blue Gradient for "BENEATH THE SURFACE."
   const heroHeadlineRef = useRef<HTMLHeadingElement>(null);
   const heroTextRef = useRef<HTMLSpanElement>(null);
-  const targetHeroCursor = useRef({ x: 50, y: 50 });
-  const currentHeroCursor = useRef({ x: 50, y: 50 });
+  const heroGlowRef = useRef<HTMLDivElement>(null);
+  const targetHeroCursor = useRef({ x: 50, y: 75 });
+  const currentHeroCursor = useRef({ x: 50, y: 75 });
   const isHeroLerpRunning = useRef(false);
 
   const startHeroLerp = () => {
@@ -2391,15 +2256,20 @@ const LandingPage: React.FC = () => {
       const dx = targetHeroCursor.current.x - currentHeroCursor.current.x;
       const dy = targetHeroCursor.current.y - currentHeroCursor.current.y;
       if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) {
-        currentHeroCursor.current.x += dx * 0.12;
-        currentHeroCursor.current.y += dy * 0.12;
+        currentHeroCursor.current.x += dx * 0.14;
+        currentHeroCursor.current.y += dy * 0.14;
+        const cx = currentHeroCursor.current.x;
+        const cy = currentHeroCursor.current.y;
         if (heroTextRef.current) {
-          const cx = currentHeroCursor.current.x;
-          const cy = currentHeroCursor.current.y;
+          const angle = 180 + (cx - 50) * 0.6;
+          const blueStop = Math.max(35, Math.min(75, 55 + (cy - 50) * 0.4));
           heroTextRef.current.style.backgroundImage = `
-            radial-gradient(ellipse 75% 55% at ${cx}% ${100 + (cy - 50) * 0.3}%, rgba(56, 189, 248, 0.95) 0%, rgba(56, 189, 248, 0) 70%),
-            linear-gradient(${180 + (cx - 50) * 0.28}deg, #ffffff 0%, #ffffff 28%, #bae6fd ${55 + (cy - 50) * 0.18}%, #38bdf8 100%)
+            radial-gradient(ellipse 85% 70% at ${cx.toFixed(1)}% ${cy.toFixed(1)}%, rgba(56, 189, 248, 0.92) 0%, rgba(56, 189, 248, 0.45) 35%, rgba(56, 189, 248, 0) 75%),
+            linear-gradient(${angle.toFixed(1)}deg, #ffffff 0%, #ffffff 28%, #bae6fd ${blueStop.toFixed(1)}%, #38bdf8 100%)
           `;
+        }
+        if (heroGlowRef.current) {
+          heroGlowRef.current.style.transform = `translate(calc(-50% + ${(cx - 50) * 0.9}px), calc(-50% + ${(cy - 50) * 0.9}px))`;
         }
         requestAnimationFrame(lerp);
       } else {
@@ -2409,22 +2279,45 @@ const LandingPage: React.FC = () => {
     requestAnimationFrame(lerp);
   };
 
-  const handleHeroMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (!heroHeadlineRef.current) return;
-    const rect = heroHeadlineRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+  const updateHeroTarget = (clientX: number, clientY: number) => {
+    const el = heroTextRef.current || heroHeadlineRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
     targetHeroCursor.current = {
-      x: Math.max(-25, Math.min(125, x)),
-      y: Math.max(-35, Math.min(135, y)),
+      x: Math.max(-20, Math.min(120, x)),
+      y: Math.max(-30, Math.min(130, y)),
     };
     startHeroLerp();
   };
 
+  const handleHeroMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    updateHeroTarget(e.clientX, e.clientY);
+  };
+
   const handleHeroMouseLeave = () => {
-    targetHeroCursor.current = { x: 50, y: 50 };
+    targetHeroCursor.current = { x: 50, y: 75 };
     startHeroLerp();
   };
+
+  useEffect(() => {
+    const onWindowMouseMove = (e: MouseEvent) => {
+      if (window.scrollY > window.innerHeight) return;
+      updateHeroTarget(e.clientX, e.clientY);
+    };
+    const onWindowMouseLeave = () => {
+      targetHeroCursor.current = { x: 50, y: 75 };
+      startHeroLerp();
+    };
+
+    window.addEventListener("mousemove", onWindowMouseMove, { passive: true });
+    document.addEventListener("mouseleave", onWindowMouseLeave);
+    return () => {
+      window.removeEventListener("mousemove", onWindowMouseMove);
+      document.removeEventListener("mouseleave", onWindowMouseLeave);
+    };
+  }, []);
 
   useEffect(() => {
     if ("scrollRestoration" in window.history) window.history.scrollRestoration = "manual";
@@ -2441,8 +2334,7 @@ const LandingPage: React.FC = () => {
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
         body { background: #081b33; }
-        .orbital-satellite-fixed-layer,
-        .argo-float-telemetry {
+        .orbital-satellite-fixed-layer {
           will-change: transform, opacity;
           backface-visibility: hidden;
           -webkit-backface-visibility: hidden;
@@ -2503,8 +2395,7 @@ const LandingPage: React.FC = () => {
           }
         }
         @media (max-width: 768px) {
-          .orbital-satellite-fixed-layer,
-          .argo-float-telemetry {
+          .orbital-satellite-fixed-layer {
             display: none !important;
           }
           .landing-3d-profile-container,
@@ -2522,9 +2413,6 @@ const LandingPage: React.FC = () => {
 
       {/* Hero Orbital Trajectory & Satellite Fly-Out Layer */}
       <HeroSatelliteOrbit />
-
-      {/* ARGO Autonomous Profiling Float Fixed Telemetry Accent */}
-      <ArgoFloatTelemetry sectionRef={howItWorksRef} />
 
       <header
         style={{
@@ -2731,7 +2619,7 @@ const LandingPage: React.FC = () => {
         }}
       >
         <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 40% 50%, transparent 25%, rgba(8,27,51,0.3) 65%, rgba(8,27,51,0.75) 100%)", pointerEvents:"none", zIndex:1 }} />
-        <div style={{ position:"absolute", top:"30%", left:"50%", transform:"translate(-50%,-50%)", width: isMobile ? "320px" : "650px", height: isMobile ? "300px" : "450px", background:"radial-gradient(ellipse, rgba(2,132,199,0.15) 0%, transparent 70%)", filter:"blur(50px)", pointerEvents:"none", zIndex:1 }} />
+        <div ref={heroGlowRef} style={{ position:"absolute", top:"30%", left:"50%", transform:"translate(-50%,-50%)", width: isMobile ? "320px" : "650px", height: isMobile ? "300px" : "450px", background:"radial-gradient(ellipse, rgba(2,132,199,0.18) 0%, transparent 70%)", filter:"blur(50px)", pointerEvents:"none", zIndex:1, transition: "transform 0.15s ease-out" }} />
         <div style={{ position:"relative", zIndex:2, maxWidth:"1040px" }}>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "10.5px" : "12px", fontWeight:600, letterSpacing: isMobile ? "0.14em" : "0.18em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase", marginBottom: isMobile ? "18px" : "24px" }}>
             AI-Powered Subsurface Ocean Intelligence
@@ -2754,13 +2642,14 @@ const LandingPage: React.FC = () => {
               style={{
                 display: "block",
                 backgroundImage: `
-                  radial-gradient(ellipse 75% 55% at 50% 100%, rgba(56, 189, 248, 0.95) 0%, rgba(56, 189, 248, 0) 70%),
-                  linear-gradient(180deg, #ffffff 0%, #ffffff 28%, #bae6fd 55%, #38bdf8 100%)
+                  radial-gradient(ellipse 85% 70% at 50% 75%, rgba(56, 189, 248, 0.92) 0%, rgba(56, 189, 248, 0.45) 35%, rgba(56, 189, 248, 0) 75%),
+                  linear-gradient(180deg, #ffffff 0%, #ffffff 28%, #bae6fd 65%, #38bdf8 100%)
                 `,
                 WebkitBackgroundClip: "text",
                 backgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 color: "transparent",
+                willChange: "background-image",
               }}
             >
               BENEATH THE SURFACE.
@@ -2803,46 +2692,295 @@ const LandingPage: React.FC = () => {
           zIndex: 4,
         }}
       >
-        <div style={{ maxWidth:"1140px", width:"100%" }}>
+        <div style={{ maxWidth: "1140px", width: "100%" }}>
           <ScrollFlyIn from="bottom">
-            <div style={{ textAlign:"center", marginBottom: isMobile ? "44px" : "80px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>The Observation Paradox</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,7.5vw,3.2rem)" : "clamp(2.4rem,6.5vw,5.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05 }}>
-                <span style={{ color:"#ffffff" }}>SPACE SEES WIDE. </span>
+            <div style={{ textAlign: "center", marginBottom: isMobile ? "36px" : "56px" }}>
+              <div style={{ fontFamily: "Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight: 600, letterSpacing: "0.16em", color: "#7dd3fc", textTransform: "uppercase", marginBottom: "14px" }}>The Blind Spot</div>
+              <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "clamp(1.9rem, 7.5vw, 3.2rem)" : "clamp(2.4rem, 6.5vw, 5.4rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
+                <span style={{ color: "#ffffff" }}>SPACE SEES WIDE. </span>
                 <span className="stroke-frost">SENSORS SEE DEEP.</span>
                 <br />
                 <span className="masked-ocean-headline">NOTHING SAW BOTH.</span>
               </h2>
+              <p style={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: isMobile ? "14px" : "16px",
+                color: "rgba(186, 230, 253, 0.72)",
+                maxWidth: "740px",
+                margin: "16px auto 0",
+                lineHeight: 1.6
+              }}>
+                To understand our oceans and climate, scientists need both wide global coverage and deep measurements. Today, no single instrument can do both.
+              </p>
             </div>
           </ScrollFlyIn>
-          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "24px" : "40px" }}>
-            <ScrollFlyIn from="left" delay={100}>
-              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(56,189,248,0.25)", borderRadius: isMobile ? "20px" : "24px", padding: isMobile ? "24px 18px" : "36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"16px" }}>
-                  <span style={{ width:6, height:6, borderRadius:"50%", background:"#38bdf8", boxShadow:"0 0 8px #38bdf8", display:"inline-block" }} />
-                  <span style={{ fontFamily:"Inter,monospace", fontSize:"11px", fontWeight:600, letterSpacing:"0.06em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase" }}>From 800 km Up - NASA / Copernicus</span>
+
+          {/* Master Telemetry Console (Single Monolithic Architectural Frame) */}
+          <ScrollFlyIn from="bottom" delay={120}>
+            <div
+              style={{
+                width: "100%",
+                background: "linear-gradient(180deg, rgba(3, 14, 30, 0.94) 0%, rgba(2, 9, 20, 0.98) 100%)",
+                border: "1px solid rgba(56, 189, 248, 0.22)",
+                borderRadius: isMobile ? "14px" : "16px",
+                boxShadow: "0 28px 80px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+                overflow: "hidden",
+                position: "relative",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+              }}
+            >
+              {/* Dual Observation Chamber */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                  position: "relative",
+                }}
+              >
+                {/* Desktop Central Demarcation Axis */}
+                {!isMobile && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: "50%",
+                      width: "1px",
+                      background: "linear-gradient(180deg, rgba(56, 189, 248, 0.22) 0%, rgba(251, 191, 36, 0.22) 100%)",
+                      zIndex: 10,
+                      pointerEvents: "none"
+                    }}
+                  >
+                    <div style={{ position: "absolute", top: "20%", left: "-5px", width: "11px", height: "1px", background: "rgba(56, 189, 248, 0.5)" }} />
+                    <div style={{ position: "absolute", top: "50%", left: "-5px", width: "11px", height: "1px", background: "rgba(255, 255, 255, 0.4)" }} />
+                    <div style={{ position: "absolute", top: "80%", left: "-5px", width: "11px", height: "1px", background: "rgba(251, 191, 36, 0.5)" }} />
+                  </div>
+                )}
+
+                {/* Panel 01: Satellites */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: isMobile ? "20px 16px" : "28px 32px 24px",
+                    borderBottom: isMobile ? "1px solid rgba(56, 189, 248, 0.16)" : "none",
+                  }}
+                >
+                  {/* Header & Stats */}
+                  <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "16px", gap: "12px", minHeight: "60px" }}>
+                    <div>
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#38bdf8", letterSpacing: "0.1em", marginBottom: "4px" }}>
+                        SPACE SATELLITES
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                        <span style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "32px" : "38px", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                          100%
+                        </span>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(186, 230, 253, 0.75)", whiteSpace: "nowrap" }}>
+                          Global Coverage
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9.5px", fontWeight: 700, color: "#f87171", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                        MAX DEPTH
+                      </div>
+                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#f87171", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "4px" }}>
+                        1 mm
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Atmospheric Orbital Viewport */}
+                  <div
+                    style={{
+                      height: isMobile ? "170px" : "210px",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "1px solid rgba(56, 189, 248, 0.2)",
+                      marginBottom: "18px",
+                    }}
+                  >
+                    <SatelliteScanIllustration />
+                  </div>
+
+                  {/* Headline & Plain-English Explanation */}
+                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.25 }}>
+                    Space sees wide — but stops at the surface.
+                  </h3>
+                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "rgba(186, 230, 253, 0.75)", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
+                    Satellites scan every ocean daily from orbit. But radar signals bounce off the top millimeter of water, leaving the entire deep ocean completely invisible.
+                  </p>
+
+                  {/* Clear Takeaway Strip */}
+                  <div
+                    style={{
+                      borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                      paddingTop: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: "11px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#38bdf8" }}>
+                      <span>✓ Strength: Scans the entire ocean surface daily</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "rgba(248, 113, 113, 0.9)" }}>
+                      <span>✕ Blind spot: Cannot see below 1 millimeter</span>
+                    </div>
+                  </div>
                 </div>
-                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Global daily coverage, but skin-deep.</h3>
-                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"14.5px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom: isMobile ? "18px" : "24px" }}>Satellites cover every square kilometer daily, but radar and infrared light stop dead at the water surface.</p>
-                <div style={{ height: isMobile ? "140px" : "160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(56,189,248,0.2)" }}>
-                  <SatelliteScanIllustration />
+
+                {/* Panel 02: Underwater Sensors */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    padding: isMobile ? "20px 16px" : "28px 32px 24px",
+                  }}
+                >
+                  {/* Header & Stats */}
+                  <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "16px", gap: "12px", minHeight: "60px" }}>
+                    <div>
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.1em", marginBottom: "4px" }}>
+                        UNDERWATER SENSORS
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                        <span style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "32px" : "38px", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                          1,000m
+                        </span>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(253, 230, 138, 0.75)", whiteSpace: "nowrap" }}>
+                          Diving Depth
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9.5px", fontWeight: 700, color: "#f87171", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                        UNMEASURED OCEAN
+                      </div>
+                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#f87171", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "4px" }}>
+                        99.8%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Atmospheric Sounding Viewport */}
+                  <div
+                    style={{
+                      height: isMobile ? "170px" : "210px",
+                      borderRadius: "8px",
+                      overflow: "hidden",
+                      border: "1px solid rgba(251, 191, 36, 0.2)",
+                      marginBottom: "18px",
+                    }}
+                  >
+                    <ArgoSectionIllustration />
+                  </div>
+
+                  {/* Headline & Plain-English Explanation */}
+                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.25 }}>
+                    Sensors see deep — but they are too far apart.
+                  </h3>
+                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "rgba(186, 230, 253, 0.75)", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
+                    Drifting robotic buoys descend 1,000 meters to record real underwater temperatures. But with only a few thousand floats worldwide, they leave 99% of the ocean unmeasured on any given day.
+                  </p>
+
+                  {/* Clear Takeaway Strip */}
+                  <div
+                    style={{
+                      borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                      paddingTop: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: "11px",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#fbbf24" }}>
+                      <span>✓ Strength: Measures real deep ocean water down to 1,000m</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "rgba(248, 113, 113, 0.9)" }}>
+                      <span>✕ Blind spot: Too sparse — leaves 99% of the ocean blank</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </ScrollFlyIn>
-            <ScrollFlyIn from="right" delay={200}>
-              <div style={{ background:"rgba(8,27,51,0.75)", border:"1px solid rgba(251,191,36,0.25)", borderRadius: isMobile ? "20px" : "24px", padding: isMobile ? "24px 18px" : "36px", backdropFilter:"blur(16px)", overflow:"hidden", boxShadow:"0 20px 50px rgba(0,0,0,0.45)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"16px" }}>
-                  <span style={{ width:6, height:6, borderRadius:"50%", background:"#fbbf24", boxShadow:"0 0 8px #fbbf24", display:"inline-block" }} />
-                  <span style={{ fontFamily:"Inter,monospace", fontSize:"11px", fontWeight:600, letterSpacing:"0.06em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase" }}>From Inside the Water - ARGO Floats</span>
+
+              {/* Lower Dock: Plain English Solution */}
+              <div
+                style={{
+                  borderTop: "1px solid rgba(56, 189, 248, 0.2)",
+                  background: "linear-gradient(180deg, rgba(6, 26, 52, 0.75) 0%, rgba(3, 13, 28, 0.95) 100%)",
+                  padding: isMobile ? "18px 16px" : "22px 32px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "14px",
+                }}
+              >
+                {/* Synthesis Header */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", borderRadius: "6px", background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Waves style={{ width: "16px", height: "16px", color: "#38bdf8" }} />
+                    </div>
+                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#7dd3fc", textTransform: "uppercase" }}>
+                      HOW OCEANEMBED BRIDGES THE GAP
+                    </span>
+                  </div>
+                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.6)" }}>
+                    Physics + AI Reconstruction
+                  </span>
                 </div>
-                <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight:700, color:"#ffffff", marginBottom:"12px" }}>Subsurface truth, but sparse pinpricks.</h3>
-                <p style={{ fontFamily:"Inter,sans-serif", fontSize:"14.5px", color:"rgba(186,230,253,0.7)", lineHeight:1.6, marginBottom: isMobile ? "18px" : "24px" }}>Drifting buoys dive 1,000 meters to measure real underwater heat, but they leave 99% of the Indian Ocean unmeasured on any given day.</p>
-                <div style={{ height: isMobile ? "140px" : "160px", borderRadius:"12px", overflow:"hidden", border:"1px solid rgba(251,191,36,0.15)" }}>
-                  <ArgoSectionIllustration />
+
+                {/* Comparison Table in Plain English */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 1fr 1fr",
+                    gap: "8px",
+                    background: "rgba(2, 8, 18, 0.6)",
+                    border: "1px solid rgba(56, 189, 248, 0.12)",
+                    borderRadius: "8px",
+                    padding: "10px 14px",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: isMobile ? "11px" : "12px",
+                  }}
+                >
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>SOURCE</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>SURFACE COVERAGE</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>UNDERWATER DEPTH</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>UPDATE SPEED</div>
+
+                  {/* Satellite Row */}
+                  <div style={{ color: "#93c5fd", fontWeight: 500 }}>01. Satellites</div>
+                  <div style={{ color: "rgba(186, 230, 253, 0.85)" }}>100% Global</div>
+                  <div style={{ color: "#f87171" }}>1 mm (Surface only)</div>
+                  <div style={{ color: "rgba(186, 230, 253, 0.85)" }}>Daily (24h)</div>
+
+                  {/* ARGO Row */}
+                  <div style={{ color: "#fde047", fontWeight: 500 }}>02. Ocean Buoys</div>
+                  <div style={{ color: "#f87171" }}>Sparse (&lt; 1% of ocean)</div>
+                  <div style={{ color: "rgba(253, 230, 138, 0.9)" }}>1,000m Deep</div>
+                  <div style={{ color: "rgba(253, 230, 138, 0.9)" }}>Every 10 Days</div>
+
+                  {/* OceanEmbed Resolution Row */}
+                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>03. OceanEmbed AI</div>
+                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>100% Global</div>
+                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>Continuous 1,000m</div>
+                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>Real-Time</div>
                 </div>
+
+                {/* Synthesis Conclusion */}
+                <p style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13px" : "14px", color: "rgba(186, 230, 253, 0.85)", lineHeight: 1.55, margin: 0 }}>
+                  <strong style={{ color: "#ffffff" }}>The Result:</strong> OceanEmbed pairs daily space satellite scans with ocean physics equations, turning surface radar into a complete 3D temperature map from the surface down to 1,000 meters in real time.
+                </p>
               </div>
-            </ScrollFlyIn>
-          </div>
+            </div>
+          </ScrollFlyIn>
         </div>
       </section>
 
@@ -2866,12 +3004,12 @@ const LandingPage: React.FC = () => {
         <div style={{ maxWidth:"1140px", width:"100%", margin:"0 auto" }}>
           <ScrollFlyIn from="bottom">
             <div style={{ textAlign:"center", marginBottom: isMobile ? "36px" : "64px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Deep Neural Reconstruction</div>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>How It Works</div>
               <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>
                 TURNING FLAT SATELLITES INTO 3D OCEANS.
               </h2>
               <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"680px", margin:"0 auto", lineHeight:1.6 }}>
-                How OceanEmbed reconstructs 1,000 meters of vertical ocean thermal structure from surface radar clues in real time.
+                How OceanEmbed turns surface satellite scans into a complete 3D temperature map 1,000 meters deep in real time.
               </p>
             </div>
           </ScrollFlyIn>
@@ -2946,7 +3084,7 @@ const LandingPage: React.FC = () => {
         <div style={{ maxWidth:"1140px", width:"100%" }}>
           <ScrollFlyIn from="bottom">
             <div style={{ marginBottom: isMobile ? "36px" : "64px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Empirical Validation</div>
+              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Verified Accuracy</div>
               <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>TESTED AGAINST REAL OCEAN BUOYS.</h2>
               <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"640px", lineHeight:1.6 }}>We do not ask scientists to trust a black box. Every prediction is automatically cross-checked against real physical thermometers diving in the Indian Ocean.</p>
             </div>
