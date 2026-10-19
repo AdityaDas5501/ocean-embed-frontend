@@ -13,7 +13,6 @@ import {
   cubicBezier,
 } from "framer-motion";
 import {
-  Waves,
   Menu,
   X,
 } from "lucide-react";
@@ -1377,6 +1376,9 @@ interface EditorialChapterProps {
   scale: MotionValue<number>;
   lineProgress: MotionValue<string>;
   accentColor?: string;
+  lineGradient?: string;
+  glowColor?: string;
+  numberGradient?: string;
 }
 
 const EditorialChapter: React.FC<EditorialChapterProps> = ({
@@ -1388,7 +1390,13 @@ const EditorialChapter: React.FC<EditorialChapterProps> = ({
   scale,
   lineProgress,
   accentColor = "#38bdf8",
+  lineGradient,
+  glowColor,
+  numberGradient,
 }) => {
+  const actualLineGrad = lineGradient || `linear-gradient(180deg, ${accentColor} 0%, #0284c7 100%)`;
+  const actualGlow = glowColor || accentColor;
+
   return (
     <motion.div
       style={{
@@ -1419,8 +1427,8 @@ const EditorialChapter: React.FC<EditorialChapterProps> = ({
           style={{
             width: "100%",
             height: lineProgress,
-            background: `linear-gradient(180deg, ${accentColor} 0%, #0284c7 100%)`,
-            boxShadow: `0 0 10px ${accentColor}`,
+            background: actualLineGrad,
+            boxShadow: `0 0 10px ${actualGlow}`,
           }}
         />
       </div>
@@ -1430,9 +1438,13 @@ const EditorialChapter: React.FC<EditorialChapterProps> = ({
           style={{
             fontFamily: "Inter, monospace",
             fontSize: "12px",
-            fontWeight: 700,
+            fontWeight: 800,
             letterSpacing: "0.14em",
-            color: accentColor,
+            background: numberGradient || accentColor,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            display: "inline-block",
+            filter: `drop-shadow(0 0 8px ${actualGlow})`,
           }}
         >
           {num}
@@ -1466,10 +1478,11 @@ const EditorialChapter: React.FC<EditorialChapterProps> = ({
       </h3>
 
       <p
+        className="text-zinc-400"
         style={{
           fontFamily: "Inter, sans-serif",
           fontSize: "12.5px",
-          color: "rgba(186, 230, 253, 0.75)",
+          color: "#a1a1aa",
           lineHeight: 1.5,
           margin: 0,
           maxWidth: "340px",
@@ -1519,7 +1532,10 @@ export const EditorialChaptersColumn: React.FC<{
         opacity={op1}
         scale={sc1}
         lineProgress={line1}
-        accentColor="#38bdf8"
+        accentColor="#34d399"
+        numberGradient="linear-gradient(135deg, #6ee7b7 0%, #34d399 100%)"
+        lineGradient="linear-gradient(180deg, #34d399 0%, #059669 100%)"
+        glowColor="rgba(52, 211, 153, 0.65)"
       />
 
       <EditorialChapter
@@ -1530,7 +1546,10 @@ export const EditorialChaptersColumn: React.FC<{
         opacity={op2}
         scale={sc2}
         lineProgress={line2}
-        accentColor="#60a5fa"
+        accentColor="#38bdf8"
+        numberGradient="linear-gradient(135deg, #7dd3fc 0%, #38bdf8 100%)"
+        lineGradient="linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)"
+        glowColor="rgba(56, 189, 248, 0.65)"
       />
 
       <EditorialChapter
@@ -1541,7 +1560,10 @@ export const EditorialChaptersColumn: React.FC<{
         opacity={op3}
         scale={sc3}
         lineProgress={line3}
-        accentColor="#a78bfa"
+        accentColor="#c084fc"
+        numberGradient="linear-gradient(135deg, #e9d5ff 0%, #c084fc 100%)"
+        lineGradient="linear-gradient(180deg, #c084fc 0%, #7c3aed 100%)"
+        glowColor="rgba(192, 132, 252, 0.65)"
       />
     </div>
   );
@@ -2192,8 +2214,8 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
     const ro = new ResizeObserver(updateCanvasSize);
     ro.observe(container);
 
-    // Particle Counts: 140 for Slide 4 (Currents), 125 for Slide 5 (Winds)
-    const totalParticles = isCurrents ? 140 : 125;
+    // Particle Counts: 190 for Slide 4 (Currents - clean, balanced vortex flow), 125 for Slide 5 (Winds)
+    const totalParticles = isCurrents ? 190 : 125;
 
     interface Particle {
       x: number;
@@ -2212,26 +2234,34 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
 
     const particles: Particle[] = Array.from({ length: totalParticles }, (_, i) => {
       if (isCurrents) {
-        // Seed 140 particles organically across Arabian Sea bounding box with eddy density
+        // Balanced distribution across the canvas with realistic vortex convergence
         let px = 0;
         let py = 0;
-        if (i < 95) {
+        if (i < 55) {
+          // Inner vortex core and core boundary
           const angle = Math.random() * Math.PI * 2;
-          const r = 18 + Math.sqrt(Math.random()) * 165;
+          const r = 14 + Math.sqrt(Math.random()) * 105;
+          px = initCx + Math.cos(angle) * r;
+          py = initCy + Math.sin(angle) * r * 0.88;
+        } else if (i < 125) {
+          // Mid-range converging spiral arms
+          const angle = Math.random() * Math.PI * 2;
+          const r = 95 + Math.sqrt(Math.random()) * 185;
           px = initCx + Math.cos(angle) * r;
           py = initCy + Math.sin(angle) * r * 0.88;
         } else {
-          px = Math.random() * width;
-          py = Math.random() * height;
+          // Full canvas basin & outer perimeter inflow (fills all corners and outer waters)
+          px = Math.random() * (width + 60) - 30;
+          py = Math.random() * (height + 60) - 30;
         }
         const dist = Math.hypot(px - initCx, py - initCy);
         return {
           x: px,
           y: py,
           distFromCore: dist,
-          speed: 0.95 + Math.random() * 0.35,
-          maxTrailLen: 14,
-          life: 400 + Math.random() * 200,
+          speed: 0.95 + Math.random() * 0.45,
+          maxTrailLen: 16,
+          life: 380 + Math.random() * 260,
           age: Math.floor(Math.random() * 300),
           phaseOffset: Math.random() * Math.PI * 2,
           history: [{ x: px, y: py }],
@@ -2268,33 +2298,33 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
         for (let i = 0; i < totalParticles; i++) {
           const pt = particles[i];
 
-          // Vector Field Math (Anticyclonic Gyre / Eddy)
+          // Vector Field Math (Convergent Anticyclonic Swirling Vortex)
           const dx = pt.x - cx;
           const dy = pt.y - cy;
           const dist = Math.hypot(dx, dy);
+          const invDist = 1 / (dist + 0.001);
           const rNorm = dist / Math.max(rEddy, 1);
 
-          // Smooth tangential swirl around (cx, cy) with peak speed near eddy ring
-          const eddyFactor = rNorm * Math.exp(-0.5 * rNorm * rNorm) * 2.7;
-          const invDist = 1 / (dist + 0.001);
-          // Clockwise tangential swirl: (-dy, dx)
-          const tanVx = -dy * invDist * eddyFactor * 2.2;
-          const tanVy = dx * invDist * eddyFactor * 2.2;
+          // 1. Swirling tangential velocity around (cx, cy)
+          const swirlFactor = (2.2 * rNorm) / (1 + rNorm * 0.85);
+          const tanVx = -dy * invDist * swirlFactor * 2.1;
+          const tanVy = dx * invDist * swirlFactor * 2.1;
 
-          // Gentle inward downwelling pull towards eddy core
-          const inwardVx = -dx * invDist * 0.12 * eddyFactor;
-          const inwardVy = -dy * invDist * 0.12 * eddyFactor;
+          // 2. Active inward suction/pull drawing particles across the entire canvas into the vortex
+          const inwardSpeed = 0.55 + 0.60 / (1 + 0.35 * rNorm);
+          const inwardVx = -dx * invDist * inwardSpeed;
+          const inwardVy = -dy * invDist * inwardSpeed;
 
-          // Gentle eastward coastal drift
-          const driftVx = 0.38 + 0.12 * Math.sin((pt.y / height) * Math.PI);
-          const driftVy = 0.08 * Math.cos((pt.x / width) * 2 * Math.PI);
+          // 3. Ambient oceanic feeder stream (curving regional flow entering the vortex)
+          const driftVx = 0.20 + 0.12 * Math.sin((pt.y / height) * Math.PI);
+          const driftVy = 0.06 * Math.cos((pt.x / width) * Math.PI);
 
           const vx = (tanVx + inwardVx + driftVx) * pt.speed;
           const vy = (tanVy + inwardVy + driftVy) * pt.speed;
 
-          // Fixed history length of 14 points (steady trail length, zero scroll dependence)
+          // Fixed history length of 15 points for smooth flowing streamline tails
           pt.history.push({ x: pt.x, y: pt.y });
-          if (pt.history.length > 14) {
+          if (pt.history.length > 15) {
             pt.history.shift();
           }
 
@@ -2302,31 +2332,32 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
           pt.y += vy * dt;
           pt.age += dt;
 
-          // Boundary wrap / respawn
-          if (pt.x > width + 35) {
-            pt.x = -15;
-            pt.y = cy + (Math.random() - 0.5) * height * 0.8;
-            pt.history = [{ x: pt.x, y: pt.y }];
-          } else if (pt.x < -35) {
-            pt.x = width + 15;
-            pt.y = cy + (Math.random() - 0.5) * height * 0.8;
-            pt.history = [{ x: pt.x, y: pt.y }];
-          }
-          if (pt.y > height + 35) {
-            pt.y = -15;
-            pt.x = Math.random() * width;
-            pt.history = [{ x: pt.x, y: pt.y }];
-          } else if (pt.y < -35) {
-            pt.y = height + 15;
-            pt.x = Math.random() * width;
-            pt.history = [{ x: pt.x, y: pt.y }];
-          }
-          if (pt.age > pt.life) {
+          // When drawn deep into the vortex eye or reaching life limit, respawn from outer basin
+          if (dist < 18 || pt.age > pt.life) {
             pt.age = 0;
-            const angle = Math.random() * Math.PI * 2;
-            const r = 20 + Math.sqrt(Math.random()) * 160;
-            pt.x = cx + Math.cos(angle) * r;
-            pt.y = cy + Math.sin(angle) * r * 0.88;
+            pt.life = 360 + Math.random() * 240;
+            if (Math.random() < 0.62) {
+              // Outer spiral arm injection
+              const angle = Math.random() * Math.PI * 2;
+              const r = rEddy * (1.6 + Math.random() * 2.2);
+              pt.x = cx + Math.cos(angle) * r;
+              pt.y = cy + Math.sin(angle) * r * 0.88;
+            } else {
+              // Canvas perimeter entry from borders
+              const edge = Math.floor(Math.random() * 4);
+              if (edge === 0) { pt.x = Math.random() * width; pt.y = -15; }
+              else if (edge === 1) { pt.x = width + 15; pt.y = Math.random() * height; }
+              else if (edge === 2) { pt.x = Math.random() * width; pt.y = height + 15; }
+              else { pt.x = -15; pt.y = Math.random() * height; }
+            }
+            pt.history = [{ x: pt.x, y: pt.y }];
+          } else if (pt.x < -40 || pt.x > width + 40 || pt.y < -40 || pt.y > height + 40) {
+            // Out of bounds wrap from outer edges
+            const edge = Math.floor(Math.random() * 4);
+            if (edge === 0) { pt.x = Math.random() * width; pt.y = -15; }
+            else if (edge === 1) { pt.x = width + 15; pt.y = Math.random() * height; }
+            else if (edge === 2) { pt.x = Math.random() * width; pt.y = height + 15; }
+            else { pt.x = -15; pt.y = Math.random() * height; }
             pt.history = [{ x: pt.x, y: pt.y }];
           }
         }
@@ -2367,7 +2398,7 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
     };
 
     // Pre-warm particle stream history so trails are immediately smooth and complete on reveal
-    for (let warm = 0; warm < 22; warm++) {
+    for (let warm = 0; warm < 35; warm++) {
       stepPhysics(1.0);
     }
 
@@ -2382,8 +2413,7 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
         else if (p >= 0.292 && p <= 0.370) op = 1;
         else if (p > 0.370 && p < 0.388) op = 1 - (p - 0.370) / 0.018;
 
-        const dp = clamp((p - 0.272) / 0.040, 0, 1);
-        return { opacity: op, drawProgress: dp };
+        return { opacity: op };
       }
 
       let op = 0;
@@ -2391,15 +2421,14 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
       else if (p >= 0.390 && p <= 0.472) op = 1;
       else if (p > 0.472 && p < 0.485) op = 1 - (p - 0.472) / 0.013;
 
-      const dp = clamp((p - 0.370) / 0.040, 0, 1);
-      return { opacity: op, drawProgress: dp };
+      return { opacity: op };
     };
 
     const render = () => {
       if (!isRunning) return;
 
       const p = progress.get();
-      const { opacity, drawProgress } = calcLifecycle(p);
+      const { opacity } = calcLifecycle(p);
 
       // Only run the canvas requestAnimationFrame loop when the slide's opacity is > 0.02
       if (opacity <= 0.02) {
@@ -2415,7 +2444,7 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
       const now = performance.now();
       let dt = (now - lastTime) / 16.667;
       lastTime = now;
-      if (dt > 2.0 || dt < 0.1) dt = 1.0;
+      if (dt > 1.5 || dt < 0.5) dt = 1.0;
 
       // Advance physics continuously based on clock time (completely independent of scroll)
       stepPhysics(dt);
@@ -2430,13 +2459,13 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
         const cy = 0.52 * height;
         const rEddy = Math.min(width, height) * 0.28;
 
-        // Add 3–4 very faint, dashed concentric contour rings around the eddy core
-        if (drawProgress > 0.01) {
+        // Faint, dashed concentric contour rings around the eddy core
+        if (opacity > 0.05) {
           ctx.save();
           ctx.setLineDash([4, 5]);
           const contourRadii = [rEddy * 0.48, rEddy * 0.98, rEddy * 1.58, rEddy * 2.22];
           contourRadii.forEach((r, idx) => {
-            ctx.strokeStyle = `rgba(253, 231, 37, ${(0.06 + idx * 0.025) * drawProgress * opacity})`;
+            ctx.strokeStyle = `rgba(253, 231, 37, ${(0.07 + idx * 0.025) * opacity})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.ellipse(cx, cy, r, r * 0.86, 0.08, 0, Math.PI * 2);
@@ -2445,84 +2474,148 @@ const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlidePro
           ctx.restore();
         }
 
-        // Render each particle with smooth individual alpha fade-in (NO POPPING!)
+        // ─── HIGH-PERFORMANCE BATCHED TRAILS (60 FPS, ZERO-LAG) ───
+        // Tier 1: Faint tail (oldest segments)
+        ctx.beginPath();
         for (let i = 0; i < totalParticles; i++) {
-          const pt = particles[i];
-
-          // Staggered progressive onset: eddy core particles fade in first, spreading outward
-          const onset = (i / totalParticles) * 0.65;
-          const particleFade = clamp((drawProgress - onset) / 0.35, 0, 1);
-          if (particleFade <= 0.003) continue;
-
-          const pts = pt.history;
-          if (pts.length >= 2) {
-            for (let j = 0; j < pts.length - 1; j++) {
-              const t = (j + 1) / pts.length;
-              const alpha = Math.pow(t, 2) * 0.85 * particleFade * opacity;
-              const w = 0.6 + t * 1.4;
-              ctx.strokeStyle = `rgba(253, 231, 37, ${alpha})`;
-              ctx.lineWidth = w;
-              ctx.lineCap = "round";
-              ctx.beginPath();
-              ctx.moveTo(pts[j].x, pts[j].y);
-              ctx.lineTo(pts[j + 1].x, pts[j + 1].y);
-              ctx.stroke();
+          const pts = particles[i].history;
+          if (pts.length >= 3) {
+            ctx.moveTo(pts[0].x, pts[0].y);
+            const end = Math.min(4, pts.length - 1);
+            for (let j = 1; j <= end; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
             }
           }
+        }
+        ctx.strokeStyle = `rgba(253, 231, 37, ${0.18 * opacity})`;
+        ctx.lineWidth = 0.8;
+        ctx.lineCap = "round";
+        ctx.stroke();
 
-          // Glowing golden head (#fde725, 1.8px radius with soft glow, smoothly faded)
-          const headAlpha = 0.95 * particleFade * opacity;
-          if (headAlpha > 0.01) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(253, 231, 37, ${headAlpha})`;
-            ctx.shadowColor = "#fde725";
-            ctx.shadowBlur = 6 * particleFade;
-            ctx.fill();
-            ctx.restore();
+        // Tier 2: Mid-stream body
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pts = particles[i].history;
+          if (pts.length >= 5) {
+            ctx.moveTo(pts[4].x, pts[4].y);
+            const end = Math.min(10, pts.length - 1);
+            for (let j = 5; j <= end; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
+            }
           }
         }
+        ctx.strokeStyle = `rgba(253, 231, 37, ${0.48 * opacity})`;
+        ctx.lineWidth = 1.3;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Tier 3: Bright leading head stream
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pts = particles[i].history;
+          if (pts.length >= 11) {
+            ctx.moveTo(pts[10].x, pts[10].y);
+            for (let j = 11; j < pts.length; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
+            }
+          }
+        }
+        ctx.strokeStyle = `rgba(253, 231, 37, ${0.85 * opacity})`;
+        ctx.lineWidth = 1.9;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // ─── BATCHED GLOWING HEADS (Pass 1: Soft Luminous Halo) ───
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+          ctx.moveTo(pt.x + 3.2, pt.y);
+          ctx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = `rgba(253, 231, 37, ${0.28 * opacity})`;
+        ctx.fill();
+
+        // ─── BATCHED GLOWING HEADS (Pass 2: Brilliant Core) ───
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+          ctx.moveTo(pt.x + 1.7, pt.y);
+          ctx.arc(pt.x, pt.y, 1.7, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = `rgba(255, 248, 180, ${0.96 * opacity})`;
+        ctx.fill();
       } else {
         // Slide 5: Monsoon Winds & Airflow (Smooth Laminar Streaks)
-        // Render each wind streak with smooth individual alpha fade-in (NO POPPING!)
+        // ─── HIGH-PERFORMANCE BATCHED TRAILS ───
+        // Tier 1: Faint wind tail
+        ctx.beginPath();
         for (let i = 0; i < totalParticles; i++) {
-          const pt = particles[i];
-
-          // Staggered progressive onset across wind corridor
-          const onset = (i / totalParticles) * 0.65;
-          const particleFade = clamp((drawProgress - onset) / 0.35, 0, 1);
-          if (particleFade <= 0.003) continue;
-
-          const pts = pt.history;
-          if (pts.length >= 2) {
-            for (let j = 0; j < pts.length - 1; j++) {
-              const t = (j + 1) / pts.length;
-              const alpha = Math.pow(t, 2) * 0.70 * particleFade * opacity;
-              const w = 0.7 + t * 1.2;
-              ctx.strokeStyle = `rgba(212, 165, 165, ${alpha})`;
-              ctx.lineWidth = w;
-              ctx.lineCap = "round";
-              ctx.beginPath();
-              ctx.moveTo(pts[j].x, pts[j].y);
-              ctx.lineTo(pts[j + 1].x, pts[j + 1].y);
-              ctx.stroke();
+          const pts = particles[i].history;
+          if (pts.length >= 3) {
+            ctx.moveTo(pts[0].x, pts[0].y);
+            const end = Math.min(6, pts.length - 1);
+            for (let j = 1; j <= end; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
             }
           }
+        }
+        ctx.strokeStyle = `rgba(212, 165, 165, ${0.16 * opacity})`;
+        ctx.lineWidth = 0.8;
+        ctx.lineCap = "round";
+        ctx.stroke();
 
-          // Soft leading tip with subtle #d4a5a5 glow, smoothly faded
-          const tipAlpha = 0.95 * particleFade * opacity;
-          if (tipAlpha > 0.01) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 1.6, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(245, 230, 230, ${tipAlpha})`;
-            ctx.shadowColor = "#d4a5a5";
-            ctx.shadowBlur = 4 * particleFade;
-            ctx.fill();
-            ctx.restore();
+        // Tier 2: Mid laminar body
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pts = particles[i].history;
+          if (pts.length >= 7) {
+            ctx.moveTo(pts[6].x, pts[6].y);
+            const end = Math.min(14, pts.length - 1);
+            for (let j = 7; j <= end; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
+            }
           }
         }
+        ctx.strokeStyle = `rgba(212, 165, 165, ${0.46 * opacity})`;
+        ctx.lineWidth = 1.2;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Tier 3: Bright leading jet
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pts = particles[i].history;
+          if (pts.length >= 15) {
+            ctx.moveTo(pts[14].x, pts[14].y);
+            for (let j = 15; j < pts.length; j++) {
+              ctx.lineTo(pts[j].x, pts[j].y);
+            }
+          }
+        }
+        ctx.strokeStyle = `rgba(212, 165, 165, ${0.82 * opacity})`;
+        ctx.lineWidth = 1.7;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // ─── BATCHED LEADING TIPS (Pass 1: Soft Aura) ───
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+          ctx.moveTo(pt.x + 2.8, pt.y);
+          ctx.arc(pt.x, pt.y, 2.8, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = `rgba(212, 165, 165, ${0.24 * opacity})`;
+        ctx.fill();
+
+        // ─── BATCHED LEADING TIPS (Pass 2: Brilliant Tip) ───
+        ctx.beginPath();
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+          ctx.moveTo(pt.x + 1.5, pt.y);
+          ctx.arc(pt.x, pt.y, 1.5, 0, Math.PI * 2);
+        }
+        ctx.fillStyle = `rgba(250, 235, 235, ${0.94 * opacity})`;
+        ctx.fill();
       }
 
       ctx.restore();
@@ -3170,44 +3263,54 @@ export const ScrollScrubbedStageVisualizer: React.FC<{
             </div>
           </motion.div>
 
-          {/* Bottom-Right Margin: Viridis Colorbar */}
+          {/* Right-Middle: Viridis Colorbar (Clean vertical format, slightly enlarged) */}
           <motion.div
             style={{
               position: "absolute",
-              bottom: "14px",
-              right: "14px",
+              top: "50%",
+              right: isMobile ? "10px" : "16px",
+              transform: "translateY(-50%)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "4px",
-              background: "rgba(2, 8, 18, 0.85)",
-              padding: "9px 8px",
-              borderRadius: "9px",
+              gap: "6px",
+              background: "rgba(2, 8, 18, 0.88)",
+              padding: "12px 10px",
+              borderRadius: "10px",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
               pointerEvents: "none",
-              zIndex: 14,
-              border: "1px solid rgba(255,255,255,0.12)",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.65)",
+              zIndex: 16,
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              boxShadow: "0 8px 28px rgba(0, 0, 0, 0.65)",
               opacity: act3CalloutOpacity,
             }}
           >
-            <span style={{ color: "rgba(186,230,253,0.7)", fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "2px" }}>
+            <span
+              style={{
+                color: "rgba(186, 230, 253, 0.75)",
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                marginBottom: "1px",
+              }}
+            >
               TEMP
             </span>
-            <span style={{ color: "#ffffff", fontSize: "11.5px", fontWeight: 700, fontFamily: "Inter, monospace" }}>
+            <span style={{ color: "#ffffff", fontSize: "12.5px", fontWeight: 700, fontFamily: "Inter, monospace" }}>
               25°C
             </span>
             <div
               style={{
-                width: "7px",
-                height: "76px",
+                width: "9px",
+                height: "105px",
                 background: "linear-gradient(to bottom, #fde725, #5ec962, #21918c, #3b528b, #440154)",
-                borderRadius: "4px",
-                boxShadow: "0 0 8px rgba(253, 231, 37, 0.25)",
+                borderRadius: "5px",
+                boxShadow: "0 0 10px rgba(253, 231, 37, 0.25)",
               }}
             />
-            <span style={{ color: "rgba(255,255,255,0.85)", fontSize: "11.5px", fontWeight: 600, fontFamily: "Inter, monospace" }}>
+            <span style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: "12.5px", fontWeight: 600, fontFamily: "Inter, monospace" }}>
               19°C
             </span>
           </motion.div>
@@ -3224,24 +3327,34 @@ export const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = 
 };
 
 const SatelliteScanIllustration: React.FC = () => (
-  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #020b18 0%, #051a36 55%, #020c1c 100%)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #020308 0%, #060919 45%, #020612 100%)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    {/* Subtle Ambient Cosmic Aurora Glow */}
+    <div style={{ position: "absolute", top: "-20%", left: "50%", transform: "translateX(-50%)", width: "240px", height: "140px", background: "radial-gradient(ellipse, rgba(168, 85, 247, 0.18) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 80%)", filter: "blur(30px)", pointerEvents: "none" }} />
+
     {/* Subtle Starfield & Coordinate Crosshairs */}
-    <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(1px 1px at 30px 20px, rgba(255,255,255,0.45) 1px, transparent 0), radial-gradient(1px 1px at 110px 50px, rgba(186,230,253,0.3) 1px, transparent 0), radial-gradient(1px 1px at 210px 25px, rgba(255,255,255,0.4) 1px, transparent 0), radial-gradient(1px 1px at 320px 60px, rgba(186,230,253,0.3) 1px, transparent 0)", backgroundSize: "360px 100px", pointerEvents: "none" }} />
+    <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(1px 1px at 30px 20px, rgba(255,255,255,0.45) 1px, transparent 0), radial-gradient(1px 1px at 110px 50px, rgba(192,132,252,0.3) 1px, transparent 0), radial-gradient(1px 1px at 210px 25px, rgba(255,255,255,0.4) 1px, transparent 0), radial-gradient(1px 1px at 320px 60px, rgba(56,189,248,0.3) 1px, transparent 0)", backgroundSize: "360px 100px", pointerEvents: "none" }} />
 
     {/* Precision Orbit Path Passing Directly Through Satellite Core */}
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100px", pointerEvents: "none", zIndex: 1 }}>
-      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="rgba(56, 189, 248, 0.12)" strokeWidth="3" filter="blur(2px)" />
-      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="rgba(56, 189, 248, 0.38)" strokeWidth="1.2" strokeDasharray="7 6" />
+      <defs>
+        <linearGradient id="orbitLineGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#c084fc" stopOpacity="0.1" />
+          <stop offset="50%" stopColor="#a855f7" stopOpacity="0.5" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
+        </linearGradient>
+      </defs>
+      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="rgba(168, 85, 247, 0.18)" strokeWidth="3" filter="blur(2px)" />
+      <path d="M -50,68 Q 500,30 1050,68" fill="none" stroke="url(#orbitLineGrad)" strokeWidth="1.2" strokeDasharray="7 6" />
     </svg>
 
-    {/* Real Satellite Wireframe Asset with Attached Blue Radar Swath */}
+    {/* Real Satellite Wireframe Asset with Attached Violet-to-Cyan Radar Swath */}
     <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "center", paddingTop: "14px" }}>
       <div className="satellite-float-anim" style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
         {/* Satellite Wireframe Image */}
         <img
           src={satelliteSrc}
           alt="Sentinel-6 Radar Altimeter"
-          style={{ width: "115px", height: "auto", filter: "drop-shadow(0 0 8px rgba(56, 189, 248, 0.35))", position: "relative", zIndex: 3 }}
+          style={{ width: "115px", height: "auto", filter: "drop-shadow(0 0 12px rgba(168, 85, 247, 0.45)) drop-shadow(0 0 6px rgba(56, 189, 248, 0.35))", position: "relative", zIndex: 3 }}
         />
 
         {/* Subtle, Soft Radar Highlight Emanating Directly From Satellite */}
@@ -3260,10 +3373,10 @@ const SatelliteScanIllustration: React.FC = () => (
           <svg viewBox="0 0 320 115" style={{ width: "100%", height: "100%" }}>
             <defs>
               <linearGradient id="satNadirBeamGradSubtle" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.4" />
-                <stop offset="35%" stopColor="#38bdf8" stopOpacity="0.1" />
-                <stop offset="85%" stopColor="#38bdf8" stopOpacity="0.03" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.2" />
+                <stop offset="0%" stopColor="#c084fc" stopOpacity="0.4" />
+                <stop offset="35%" stopColor="#818cf8" stopOpacity="0.15" />
+                <stop offset="85%" stopColor="#38bdf8" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.25" />
               </linearGradient>
             </defs>
 
@@ -3274,8 +3387,8 @@ const SatelliteScanIllustration: React.FC = () => (
             />
 
             {/* Delicate Hairline Guide Rays */}
-            <line x1="155" y1="0" x2="15" y2="115" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" strokeDasharray="3 3" />
-            <line x1="165" y1="0" x2="305" y2="115" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="0.8" strokeDasharray="3 3" />
+            <line x1="155" y1="0" x2="15" y2="115" stroke="rgba(192, 132, 252, 0.3)" strokeWidth="0.8" strokeDasharray="3 3" />
+            <line x1="165" y1="0" x2="305" y2="115" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="0.8" strokeDasharray="3 3" />
           </svg>
         </div>
       </div>
@@ -3287,17 +3400,17 @@ const SatelliteScanIllustration: React.FC = () => (
         <span style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 700, color: "#38bdf8", letterSpacing: "0.08em" }}>
           OCEAN SURFACE (1.0 mm)
         </span>
-        <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 600, color: "#f87171", letterSpacing: "0.06em" }}>
-          RADAR BOUNCES OFF WATER
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 600, color: "#c084fc", letterSpacing: "0.06em" }}>
+          RADAR REFLECTS AT SURFACE
         </span>
       </div>
 
       {/* Surface Glowing Horizon Line */}
-      <div style={{ height: "2px", width: "100%", background: "linear-gradient(90deg, rgba(56,189,248,0.2) 0%, #38bdf8 50%, rgba(56,189,248,0.2) 100%)", boxShadow: "0 0 8px #38bdf8" }} />
+      <div style={{ height: "2px", width: "100%", background: "linear-gradient(90deg, rgba(168,85,247,0.2) 0%, #38bdf8 50%, rgba(56,189,248,0.2) 100%)", boxShadow: "0 0 10px rgba(56,189,248,0.6)" }} />
 
       {/* Dark Unseen Ocean Depth */}
-      <div style={{ height: "46px", background: "linear-gradient(180deg, #04101e 0%, #01060e 100%)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-        <span style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 600, color: "rgba(186, 230, 253, 0.35)", letterSpacing: "0.14em" }}>
+      <div style={{ height: "46px", background: "linear-gradient(180deg, #02050c 0%, #000206 100%)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 600, color: "rgba(186, 230, 253, 0.3)", letterSpacing: "0.14em" }}>
           UNSEEN OCEAN DEPTH (0 – 1,000m)
         </span>
       </div>
@@ -3306,18 +3419,21 @@ const SatelliteScanIllustration: React.FC = () => (
 );
 
 const ArgoSectionIllustration: React.FC = () => (
-  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #051c36 0%, #031022 55%, #01060e 100%)", overflow: "hidden", display: "flex" }}>
+  <div style={{ position: "relative", width: "100%", height: "100%", background: "linear-gradient(180deg, #020914 0%, #03141f 55%, #01070e 100%)", overflow: "hidden", display: "flex" }}>
+    {/* Subtle Bioluminescent Ambient Wash */}
+    <div style={{ position: "absolute", top: "30%", right: "15%", width: "220px", height: "140px", background: "radial-gradient(circle, rgba(45, 212, 191, 0.12) 0%, rgba(52, 211, 153, 0.05) 50%, transparent 75%)", filter: "blur(28px)", pointerEvents: "none" }} />
+
     {/* Left Depth Scale */}
-    <div style={{ width: "72px", borderRight: "1px solid rgba(251, 191, 36, 0.15)", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 8px", boxSizing: "border-box", zIndex: 2, background: "rgba(2, 10, 22, 0.55)" }}>
+    <div style={{ width: "72px", borderRight: "1px solid rgba(45, 212, 191, 0.18)", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "10px 8px", boxSizing: "border-box", zIndex: 2, background: "rgba(2, 8, 16, 0.65)" }}>
       {[
-        { d: "0 m", label: "SURFACE" },
-        { d: "200 m", label: "THERMOCLINE" },
-        { d: "500 m", label: "MID-DEPTH" },
-        { d: "1,000 m", label: "ABYSS" },
+        { d: "0 m", label: "SURFACE", color: "#38bdf8" },
+        { d: "200 m", label: "THERMOCLINE", color: "#2dd4bf" },
+        { d: "500 m", label: "MID-DEPTH", color: "#34d399" },
+        { d: "1,000 m", label: "ABYSS", color: "#10b981" },
       ].map((mark, i) => (
         <div key={i} style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 700, color: "#fbbf24" }}>{mark.d}</span>
-          <span style={{ fontFamily: "Inter, monospace", fontSize: "7px", color: "rgba(253, 230, 138, 0.45)", letterSpacing: "0.04em" }}>{mark.label}</span>
+          <span style={{ fontFamily: "Inter, monospace", fontSize: "8.5px", fontWeight: 700, color: mark.color }}>{mark.d}</span>
+          <span style={{ fontFamily: "Inter, monospace", fontSize: "7px", color: "rgba(45, 212, 191, 0.55)", letterSpacing: "0.04em" }}>{mark.label}</span>
         </div>
       ))}
     </div>
@@ -3326,21 +3442,28 @@ const ArgoSectionIllustration: React.FC = () => (
     <div style={{ flex: 1, position: "relative", height: "100%", overflow: "hidden" }}>
       {/* 10-Day Profile Trajectory Curve */}
       <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-        <path d="M 40,16 C 80,35 130,70 130,140 S 175,155 210,16" fill="none" stroke="rgba(251, 191, 36, 0.3)" strokeWidth="1.2" strokeDasharray="3 3" />
+        <defs>
+          <linearGradient id="argoDepthGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.5" />
+            <stop offset="50%" stopColor="#2dd4bf" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#34d399" stopOpacity="0.5" />
+          </linearGradient>
+        </defs>
+        <path d="M 40,16 C 80,35 130,70 130,140 S 175,155 210,16" fill="none" stroke="url(#argoDepthGrad)" strokeWidth="1.2" strokeDasharray="3 3" />
 
         {/* Sonar Acoustic Pulse Rings */}
-        <circle cx="130" cy="98" r="14" fill="none" stroke="rgba(251, 191, 36, 0.35)" strokeWidth="0.8">
+        <circle cx="130" cy="98" r="14" fill="none" stroke="rgba(45, 212, 191, 0.4)" strokeWidth="0.8">
           <animate attributeName="r" values="8;30;8" dur="3.2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.75;0;0.75" dur="3.2s" repeatCount="indefinite" />
         </circle>
-        <circle cx="130" cy="98" r="26" fill="none" stroke="rgba(251, 191, 36, 0.18)" strokeWidth="0.8">
+        <circle cx="130" cy="98" r="26" fill="none" stroke="rgba(52, 211, 153, 0.25)" strokeWidth="0.8">
           <animate attributeName="r" values="14;44;14" dur="3.2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.5;0;0.5" dur="3.2s" repeatCount="indefinite" />
         </circle>
 
         {/* Surface Satellite Transmission Beam */}
-        <line x1="40" y1="16" x2="40" y2="4" stroke="#fbbf24" strokeWidth="1.5" />
-        <circle cx="40" cy="16" r="3" fill="#fbbf24" />
+        <line x1="40" y1="16" x2="40" y2="4" stroke="#2dd4bf" strokeWidth="1.5" />
+        <circle cx="40" cy="16" r="3" fill="#2dd4bf" />
       </svg>
 
       {/* ARGO Float Asset */}
@@ -3348,13 +3471,13 @@ const ArgoSectionIllustration: React.FC = () => (
         <img
           src={argoSrc}
           alt="ARGO Profiling CTD Float"
-          style={{ height: "80px", width: "auto", filter: "drop-shadow(0 0 12px rgba(251, 191, 36, 0.55))" }}
+          style={{ height: "80px", width: "auto", filter: "drop-shadow(0 0 16px rgba(45, 212, 191, 0.6)) drop-shadow(0 0 6px rgba(52, 211, 153, 0.4))" }}
         />
       </div>
 
       {/* Floating Status Pill */}
-      <div style={{ position: "absolute", right: "12px", bottom: "10px", zIndex: 4, background: "rgba(2, 10, 22, 0.85)", border: "1px solid rgba(251, 191, 36, 0.25)", borderRadius: "4px", padding: "3px 8px" }}>
-        <span style={{ fontFamily: "Inter, monospace", fontSize: "8px", fontWeight: 600, color: "rgba(253, 230, 138, 0.85)", letterSpacing: "0.06em" }}>
+      <div style={{ position: "absolute", right: "12px", bottom: "10px", zIndex: 4, background: "rgba(2, 8, 16, 0.88)", border: "1px solid rgba(45, 212, 191, 0.3)", borderRadius: "4px", padding: "3px 8px", boxShadow: "0 0 10px rgba(45, 212, 191, 0.12)" }}>
+        <span style={{ fontFamily: "Inter, monospace", fontSize: "8px", fontWeight: 600, color: "#34d399", letterSpacing: "0.06em" }}>
           TEMPERATURE ACCURACY: ±0.002°C
         </span>
       </div>
@@ -4039,10 +4162,12 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
   if (isMobile || scrollY > 1100) return null;
 
   const orbitFade = clamp(1 - scrollY / 720, 0, 1);
-  const satelliteFade = clamp((1 - scrollY / 820) * 0.78, 0, 0.78);
-  const flyX = scrollY * 0.24;
-  const flyY = -scrollY * 0.14;
-  const flyScale = clamp(1 - scrollY * 0.00025, 0.75, 1);
+  const scrollP = clamp(scrollY / 850, 0, 1);
+  // Both: dramatic scale-down into deep space (1.0 -> 0.20) AND dynamic fly-out trajectory
+  const flyScale = clamp(1 - Math.pow(scrollP, 0.85) * 0.80, 0.20, 1);
+  const flyX = scrollY * 0.26;
+  const flyY = -scrollY * 0.15;
+  const satelliteFade = clamp((1 - scrollY / 850) * 0.95, 0, 0.95);
 
   return (
     <>
@@ -4107,22 +4232,41 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
           width: "clamp(125px, 12.5vw, 180px)",
           zIndex: 1,
           pointerEvents: "none",
+          transformOrigin: "center center",
           transform: `translate3d(${flyX}px, ${flyY}px, 0) scale(${flyScale})`,
           opacity: satelliteFade,
           transition: "transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out",
           userSelect: "none",
         }}
       >
+        {/* Broad Ambient Space Haze behind Satellite */}
         <div
           style={{
             position: "absolute",
-            top: "20%",
-            left: "20%",
-            width: "75%",
-            height: "75%",
-            background: "radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, rgba(2, 132, 199, 0.05) 50%, transparent 75%)",
-            filter: "blur(32px)",
-            borderRadius: "9999px",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "300%",
+            height: "300%",
+            background: "radial-gradient(ellipse at center, rgba(56, 189, 248, 0.22) 0%, rgba(14, 165, 233, 0.12) 35%, rgba(3, 105, 161, 0.04) 60%, transparent 75%)",
+            filter: "blur(50px)",
+            borderRadius: "50%",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Focused Core Atmospheric Glow immediately behind Satellite Body */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "150%",
+            height: "150%",
+            background: "radial-gradient(circle at center, rgba(186, 230, 253, 0.32) 0%, rgba(56, 189, 248, 0.18) 45%, transparent 75%)",
+            filter: "blur(24px)",
+            borderRadius: "50%",
             pointerEvents: "none",
           }}
         />
@@ -4137,8 +4281,8 @@ const HeroSatelliteOrbit: React.FC = React.memo(() => {
               display: "block",
               transform: "scaleX(-1) rotate(-14deg)",
               mixBlendMode: "screen",
-              opacity: 0.78,
-              filter: "drop-shadow(0 0 20px rgba(56, 189, 248, 0.3))",
+              opacity: 0.95,
+              filter: "drop-shadow(0 0 16px rgba(56, 189, 248, 0.55)) drop-shadow(0 0 35px rgba(56, 189, 248, 0.25))",
             }}
           />
         </div>
@@ -4321,12 +4465,24 @@ const LandingPage: React.FC = () => {
   }, []);
 
   return (
-    <div style={{ background: "#081b33", color: "#ffffff", minHeight: "100vh", width: "100%", position: "relative" }}>
+    <div className="bg-black text-white min-h-screen w-full relative" style={{ background: "#000000", color: "#ffffff", minHeight: "100vh", width: "100%", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { background: #081b33; }
+        body { background: #000000; color: #ffffff; }
+        .bg-black { background-color: #000000 !important; }
+        .bg-zinc-950 { background-color: #09090b !important; }
+        .text-zinc-400 { color: #a1a1aa !important; }
+        .text-white { color: #ffffff !important; }
+        .text-transparent { color: transparent !important; -webkit-text-fill-color: transparent !important; }
+        .bg-clip-text { -webkit-background-clip: text !important; background-clip: text !important; }
+        .from-teal-300.to-emerald-400 { background-image: linear-gradient(to right, #5eead4, #34d399) !important; }
+        .from-blue-400.to-indigo-400 { background-image: linear-gradient(to right, #60a5fa, #818cf8) !important; }
+        .from-fuchsia-400.to-pink-400 { background-image: linear-gradient(to right, #e879f9, #f472b6) !important; }
+        .from-cyan-400.to-blue-500 { background-image: linear-gradient(to bottom right, #22d3ee, #3b82f6) !important; }
+        .from-emerald-400.to-teal-500 { background-image: linear-gradient(to bottom right, #34d399, #14b8a6) !important; }
+        .from-purple-400.to-indigo-500 { background-image: linear-gradient(to bottom right, #c084fc, #6366f1) !important; }
         .orbital-satellite-fixed-layer {
           will-change: transform, opacity;
           backface-visibility: hidden;
@@ -4353,12 +4509,15 @@ const LandingPage: React.FC = () => {
         .stroke-frost{display:inline-block;-webkit-text-stroke:1.5px rgba(186,230,253,0.6);-webkit-text-fill-color:transparent!important;color:transparent!important}
         .masked-ice{display:inline-block;background-image:linear-gradient(135deg,#bae6fd 0%,#38bdf8 60%,#0ea5e9 100%);-webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;color:transparent!important}
         .number-outline-ice{display:inline-block;-webkit-text-stroke:1.5px rgba(186,230,253,0.65);-webkit-text-fill-color:transparent!important;color:transparent!important}
-        .nav-anchor{font-family:Inter,sans-serif;font-size:13px;font-weight:500;color:rgba(186,230,253,0.65);text-decoration:none;letter-spacing:.02em;transition:color .2s ease}
-        .nav-anchor:hover{color:#bae6fd}
-        .btn-primary{background:#ffffff;color:#0c1a2e;font-family:Inter,sans-serif;font-weight:600;border-radius:999px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(56,189,248,0.25);transition:all .3s cubic-bezier(.16,1,.3,1);border:none;cursor:pointer}
-        .btn-primary:hover{background:#e0f2fe;transform:translateY(-2px);box-shadow:0 12px 40px rgba(56,189,248,0.4)}
-        .btn-glass{background:rgba(255,255,255,0.10);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.20);color:#ffffff;font-family:Inter,sans-serif;font-weight:500;border-radius:999px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all .3s ease;cursor:pointer}
-        .btn-glass:hover{background:rgba(255,255,255,0.18);border-color:rgba(186,230,253,0.4);transform:translateY(-2px)}
+        .number-outline-cyan{display:inline-block;-webkit-text-stroke:1.5px #22d3ee;-webkit-text-fill-color:transparent!important;color:transparent!important;filter:drop-shadow(0 0 14px rgba(34,211,238,0.4));}
+        .number-outline-emerald{display:inline-block;-webkit-text-stroke:1.5px #34d399;-webkit-text-fill-color:transparent!important;color:transparent!important;filter:drop-shadow(0 0 14px rgba(52,211,153,0.4));}
+        .number-outline-purple{display:inline-block;-webkit-text-stroke:1.5px #c084fc;-webkit-text-fill-color:transparent!important;color:transparent!important;filter:drop-shadow(0 0 14px rgba(192,132,252,0.4));}
+        .nav-anchor{font-family:Inter,sans-serif;font-size:13px;font-weight:500;color:#a1a1aa;text-decoration:none;letter-spacing:.02em;transition:color .2s ease}
+        .nav-anchor:hover{color:#ffffff}
+        .btn-primary{background:#ffffff;color:#000000;font-family:Inter,sans-serif;font-weight:600;border-radius:999px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(255,255,255,0.15);transition:all .3s cubic-bezier(.16,1,.3,1);border:none;cursor:pointer}
+        .btn-primary:hover{background:#f4f4f5;transform:translateY(-2px);box-shadow:0 12px 40px rgba(255,255,255,0.25)}
+        .btn-glass{background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);color:#ffffff;font-family:Inter,sans-serif;font-weight:500;border-radius:999px;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all .3s ease;cursor:pointer}
+        .btn-glass:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);transform:translateY(-2px)}
         @keyframes satelliteHover {
           0%, 100% {
             transform: translateY(0px) rotate(0deg);
@@ -4430,10 +4589,10 @@ const LandingPage: React.FC = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: isScrolled || mobileMenuOpen ? "rgba(8,27,51,0.92)" : "transparent",
+          background: isScrolled || mobileMenuOpen ? "rgba(0,0,0,0.85)" : "transparent",
           backdropFilter: isScrolled || mobileMenuOpen ? "blur(20px)" : "none",
           WebkitBackdropFilter: isScrolled || mobileMenuOpen ? "blur(20px)" : "none",
-          borderBottom: isScrolled || mobileMenuOpen ? "1px solid rgba(186,230,253,0.12)" : "1px solid transparent",
+          borderBottom: isScrolled || mobileMenuOpen ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent",
           transition: "all .3s ease",
         }}
       >
@@ -4498,10 +4657,10 @@ const LandingPage: React.FC = () => {
             top: "58px",
             left: 0,
             right: 0,
-            background: "rgba(6, 20, 38, 0.98)",
+            background: "rgba(5, 5, 5, 0.98)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
-            borderBottom: "1px solid rgba(56, 189, 248, 0.2)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
             zIndex: 999,
             padding: "20px 18px 24px",
             display: "flex",
@@ -4623,7 +4782,7 @@ const LandingPage: React.FC = () => {
           zIndex: 3
         }}
       >
-        <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 40% 50%, transparent 25%, rgba(8,27,51,0.3) 65%, rgba(8,27,51,0.75) 100%)", pointerEvents:"none", zIndex:1 }} />
+        <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 40% 50%, transparent 25%, rgba(0,0,0,0.4) 65%, rgba(0,0,0,0.95) 100%)", pointerEvents:"none", zIndex:1 }} />
         <div ref={heroGlowRef} style={{ position:"absolute", top:"30%", left:"50%", transform:"translate(-50%,-50%)", width: isMobile ? "320px" : "650px", height: isMobile ? "300px" : "450px", background:"radial-gradient(ellipse, rgba(2,132,199,0.18) 0%, transparent 70%)", filter:"blur(50px)", pointerEvents:"none", zIndex:1, transition: "transform 0.15s ease-out" }} />
         <div style={{ position:"relative", zIndex:2, maxWidth:"1040px" }}>
           <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "10.5px" : "12px", fontWeight:600, letterSpacing: isMobile ? "0.14em" : "0.18em", color:"rgba(186,230,253,0.7)", textTransform:"uppercase", marginBottom: isMobile ? "18px" : "24px" }}>
@@ -4660,7 +4819,7 @@ const LandingPage: React.FC = () => {
               BENEATH THE SURFACE.
             </span>
           </h1>
-          <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15.5px" : "clamp(17px,2vw,21px)", fontWeight:400, color:"rgba(186,230,253,0.8)", lineHeight:1.65, maxWidth:"680px", margin: isMobile ? "0 auto 30px" : "0 auto 44px" }}>
+          <p className="text-zinc-400" style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15.5px" : "clamp(17px,2vw,21px)", fontWeight:400, color:"#a1a1aa", lineHeight:1.65, maxWidth:"680px", margin: isMobile ? "0 auto 30px" : "0 auto 44px" }}>
             Satellites photograph the entire ocean every day, but they can only see the top millimeter of water. OceanEmbed uses deep learning to turn flat surface snapshots into a 3D underwater temperature map, 1,000 meters deep.
           </p>
           <div style={{ display:"flex", gap:"18px", justifyContent:"center", flexWrap:"wrap" }}>
@@ -4683,9 +4842,10 @@ const LandingPage: React.FC = () => {
 
       <section
         id="blind-spot"
+        className="bg-black relative"
         style={{
           minHeight: "100vh",
-          background: "linear-gradient(180deg, rgba(7,54,84,0.76) 0%, rgba(6,40,64,0.86) 60%, rgba(4,28,51,0.94) 100%)",
+          background: "#000000",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           padding: isMobile ? "70px 18px 90px" : "100px 32px 140px",
@@ -4695,26 +4855,71 @@ const LandingPage: React.FC = () => {
           justifyContent: "center",
           position: "relative",
           zIndex: 4,
+          overflow: "hidden",
         }}
       >
-        <div style={{ maxWidth: "1140px", width: "100%" }}>
+        {/* Soft Ambient Glow Orbs - Strategic Violet & Emerald */}
+        <div
+          style={{
+            position: "absolute",
+            width: "550px",
+            height: "550px",
+            background: "radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%)",
+            filter: "blur(130px)",
+            borderRadius: "9999px",
+            pointerEvents: "none",
+            top: "-80px",
+            left: "-80px",
+            zIndex: 0,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            width: "550px",
+            height: "550px",
+            background: "radial-gradient(circle, rgba(52, 211, 153, 0.10) 0%, transparent 70%)",
+            filter: "blur(130px)",
+            borderRadius: "9999px",
+            pointerEvents: "none",
+            bottom: "0px",
+            right: "-80px",
+            zIndex: 0,
+          }}
+        />
+        <div style={{ maxWidth: "1140px", width: "100%", position: "relative", zIndex: 1 }}>
           <ScrollFlyIn from="bottom">
             <div style={{ textAlign: "center", marginBottom: isMobile ? "36px" : "56px" }}>
-              <div style={{ fontFamily: "Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight: 600, letterSpacing: "0.16em", color: "#7dd3fc", textTransform: "uppercase", marginBottom: "14px" }}>The Blind Spot</div>
+              <div
+                style={{
+                  fontFamily: "Inter,sans-serif",
+                  fontSize: isMobile ? "11px" : "12px",
+                  fontWeight: 600,
+                  letterSpacing: "0.16em",
+                  color: "#7dd3fc",
+                  textTransform: "uppercase",
+                  marginBottom: "14px",
+                }}
+              >
+                The Blind Spot
+              </div>
               <h2 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "clamp(1.9rem, 7.5vw, 3.2rem)" : "clamp(2.4rem, 6.5vw, 5.4rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.05 }}>
                 <span style={{ color: "#ffffff" }}>SPACE SEES WIDE. </span>
                 <span className="stroke-frost">SENSORS SEE DEEP.</span>
                 <br />
                 <span className="masked-ocean-headline">NOTHING SAW BOTH.</span>
               </h2>
-              <p style={{
-                fontFamily: "Inter, sans-serif",
-                fontSize: isMobile ? "14px" : "16px",
-                color: "rgba(186, 230, 253, 0.72)",
-                maxWidth: "740px",
-                margin: "16px auto 0",
-                lineHeight: 1.6
-              }}>
+              <p
+                className="text-zinc-400"
+                style={{
+                  fontFamily: "Inter, sans-serif",
+                  fontSize: isMobile ? "14px" : "16px",
+                  color: "#a1a1aa",
+                  maxWidth: "740px",
+                  margin: "16px auto 0",
+                  lineHeight: 1.6
+                }}
+              >
                 To understand our oceans and climate, scientists need both wide global coverage and deep measurements. Today, no single instrument can do both.
               </p>
             </div>
@@ -4723,12 +4928,13 @@ const LandingPage: React.FC = () => {
           {/* Master Telemetry Console (Single Monolithic Architectural Frame) */}
           <ScrollFlyIn from="bottom" delay={120}>
             <div
+              className="bg-zinc-950 border border-white/10"
               style={{
                 width: "100%",
-                background: "linear-gradient(180deg, rgba(3, 14, 30, 0.94) 0%, rgba(2, 9, 20, 0.98) 100%)",
-                border: "1px solid rgba(56, 189, 248, 0.22)",
+                background: "linear-gradient(180deg, rgba(10, 10, 16, 0.96) 0%, rgba(4, 5, 8, 0.98) 100%)",
+                border: "1px solid rgba(255, 255, 255, 0.10)",
                 borderRadius: isMobile ? "14px" : "16px",
-                boxShadow: "0 28px 80px -20px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+                boxShadow: "0 28px 80px -20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
                 overflow: "hidden",
                 position: "relative",
                 backdropFilter: "blur(20px)",
@@ -4752,14 +4958,14 @@ const LandingPage: React.FC = () => {
                       bottom: 0,
                       left: "50%",
                       width: "1px",
-                      background: "linear-gradient(180deg, rgba(56, 189, 248, 0.22) 0%, rgba(251, 191, 36, 0.22) 100%)",
+                      background: "linear-gradient(180deg, rgba(168, 85, 247, 0.4) 0%, rgba(56, 189, 248, 0.4) 50%, rgba(52, 211, 153, 0.4) 100%)",
                       zIndex: 10,
                       pointerEvents: "none"
                     }}
                   >
-                    <div style={{ position: "absolute", top: "20%", left: "-5px", width: "11px", height: "1px", background: "rgba(56, 189, 248, 0.5)" }} />
-                    <div style={{ position: "absolute", top: "50%", left: "-5px", width: "11px", height: "1px", background: "rgba(255, 255, 255, 0.4)" }} />
-                    <div style={{ position: "absolute", top: "80%", left: "-5px", width: "11px", height: "1px", background: "rgba(251, 191, 36, 0.5)" }} />
+                    <div style={{ position: "absolute", top: "20%", left: "-5px", width: "11px", height: "1px", background: "rgba(168, 85, 247, 0.8)", boxShadow: "0 0 8px #c084fc" }} />
+                    <div style={{ position: "absolute", top: "50%", left: "-5px", width: "11px", height: "1px", background: "rgba(56, 189, 248, 0.8)", boxShadow: "0 0 8px #38bdf8" }} />
+                    <div style={{ position: "absolute", top: "80%", left: "-5px", width: "11px", height: "1px", background: "rgba(52, 211, 153, 0.8)", boxShadow: "0 0 8px #34d399" }} />
                   </div>
                 )}
 
@@ -4768,30 +4974,74 @@ const LandingPage: React.FC = () => {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    padding: isMobile ? "20px 16px" : "28px 32px 24px",
-                    borderBottom: isMobile ? "1px solid rgba(56, 189, 248, 0.16)" : "none",
+                    padding: isMobile ? "22px 18px" : "32px 36px 28px",
+                    background: "linear-gradient(180deg, rgba(14, 11, 26, 0.5) 0%, rgba(6, 7, 16, 0.8) 100%)",
+                    borderBottom: isMobile ? "1px solid rgba(168, 85, 247, 0.2)" : "none",
+                    position: "relative",
                   }}
                 >
                   {/* Header & Stats */}
                   <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "16px", gap: "12px", minHeight: "60px" }}>
                     <div>
-                      <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#38bdf8", letterSpacing: "0.1em", marginBottom: "4px" }}>
-                        SPACE SATELLITES
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "3px 10px",
+                          borderRadius: "9999px",
+                          background: "rgba(168, 85, 247, 0.10)",
+                          border: "1px solid rgba(168, 85, 247, 0.25)",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "Inter, monospace",
+                            fontSize: "10.5px",
+                            fontWeight: 700,
+                            letterSpacing: "0.12em",
+                            background: "linear-gradient(90deg, #c084fc 0%, #818cf8 50%, #38bdf8 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
+                          SPACE SATELLITES
+                        </span>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                        <span style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "32px" : "38px", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                        <span
+                          style={{
+                            fontFamily: "Syne, sans-serif",
+                            fontSize: isMobile ? "32px" : "38px",
+                            fontWeight: 800,
+                            letterSpacing: "-0.03em",
+                            lineHeight: 1,
+                            background: "linear-gradient(135deg, #ffffff 40%, #c084fc 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
                           100%
                         </span>
-                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(186, 230, 253, 0.75)", whiteSpace: "nowrap" }}>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(192, 132, 252, 0.85)", whiteSpace: "nowrap" }}>
                           Global Coverage
                         </span>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9.5px", fontWeight: 700, color: "#f87171", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
-                        MAX DEPTH
+                    <div
+                      style={{
+                        textAlign: "right",
+                        flexShrink: 0,
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        background: "rgba(168, 85, 247, 0.08)",
+                        border: "1px solid rgba(168, 85, 247, 0.22)",
+                      }}
+                    >
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 700, color: "#d8b4fe", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                        MAX PENETRATION
                       </div>
-                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#f87171", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "4px" }}>
+                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#c084fc", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "2px" }}>
                         1 mm
                       </div>
                     </div>
@@ -4801,9 +5051,10 @@ const LandingPage: React.FC = () => {
                   <div
                     style={{
                       height: isMobile ? "170px" : "210px",
-                      borderRadius: "8px",
+                      borderRadius: "10px",
                       overflow: "hidden",
-                      border: "1px solid rgba(56, 189, 248, 0.2)",
+                      border: "1px solid rgba(168, 85, 247, 0.25)",
+                      boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(168, 85, 247, 0.05)",
                       marginBottom: "18px",
                     }}
                   >
@@ -4811,10 +5062,10 @@ const LandingPage: React.FC = () => {
                   </div>
 
                   {/* Headline & Plain-English Explanation */}
-                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.25 }}>
+                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.3 }}>
                     Space sees wide — but stops at the surface.
                   </h3>
-                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "rgba(186, 230, 253, 0.75)", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
+                  <p className="text-zinc-400" style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "#a1a1aa", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
                     Satellites scan every ocean daily from orbit. But radar signals bounce off the top millimeter of water, leaving the entire deep ocean completely invisible.
                   </p>
 
@@ -4822,19 +5073,21 @@ const LandingPage: React.FC = () => {
                   <div
                     style={{
                       borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-                      paddingTop: "12px",
+                      paddingTop: "14px",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "5px",
+                      gap: "8px",
                       fontFamily: "Inter, sans-serif",
-                      fontSize: "11px",
+                      fontSize: "11.5px",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", color: "#38bdf8" }}>
-                      <span>✓ Strength: Scans the entire ocean surface daily</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", borderRadius: "6px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.2)", color: "#38bdf8" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700 }}>✓</span>
+                      <span><strong>Capability:</strong> Scans the entire ocean surface daily</span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", color: "rgba(248, 113, 113, 0.9)" }}>
-                      <span>✕ Blind spot: Cannot see below 1 millimeter</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", borderRadius: "6px", background: "rgba(168, 85, 247, 0.08)", border: "1px solid rgba(168, 85, 247, 0.2)", color: "#c084fc" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700 }}>✕</span>
+                      <span><strong>Limitation:</strong> Signals bounce off top 1mm — subsurface invisible</span>
                     </div>
                   </div>
                 </div>
@@ -4844,29 +5097,73 @@ const LandingPage: React.FC = () => {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    padding: isMobile ? "20px 16px" : "28px 32px 24px",
+                    padding: isMobile ? "22px 18px" : "32px 36px 28px",
+                    background: "linear-gradient(180deg, rgba(4, 16, 18, 0.5) 0%, rgba(3, 10, 14, 0.8) 100%)",
+                    position: "relative",
                   }}
                 >
                   {/* Header & Stats */}
                   <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: "16px", gap: "12px", minHeight: "60px" }}>
                     <div>
-                      <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.1em", marginBottom: "4px" }}>
-                        UNDERWATER SENSORS
+                      <div
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "3px 10px",
+                          borderRadius: "9999px",
+                          background: "rgba(20, 184, 166, 0.10)",
+                          border: "1px solid rgba(20, 184, 166, 0.25)",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "Inter, monospace",
+                            fontSize: "10.5px",
+                            fontWeight: 700,
+                            letterSpacing: "0.12em",
+                            background: "linear-gradient(90deg, #38bdf8 0%, #2dd4bf 50%, #34d399 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
+                          UNDERWATER SENSORS
+                        </span>
                       </div>
                       <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-                        <span style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "32px" : "38px", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                        <span
+                          style={{
+                            fontFamily: "Syne, sans-serif",
+                            fontSize: isMobile ? "32px" : "38px",
+                            fontWeight: 800,
+                            letterSpacing: "-0.03em",
+                            lineHeight: 1,
+                            background: "linear-gradient(135deg, #ffffff 40%, #2dd4bf 100%)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                          }}
+                        >
                           1,000m
                         </span>
-                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(253, 230, 138, 0.75)", whiteSpace: "nowrap" }}>
+                        <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 600, color: "rgba(45, 212, 191, 0.85)", whiteSpace: "nowrap" }}>
                           Diving Depth
                         </span>
                       </div>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9.5px", fontWeight: 700, color: "#f87171", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
-                        UNMEASURED OCEAN
+                    <div
+                      style={{
+                        textAlign: "right",
+                        flexShrink: 0,
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        background: "rgba(56, 189, 248, 0.08)",
+                        border: "1px solid rgba(56, 189, 248, 0.22)",
+                      }}
+                    >
+                      <div style={{ fontFamily: "Inter, monospace", fontSize: "9px", fontWeight: 700, color: "#7dd3fc", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                        UNMEASURED GAP
                       </div>
-                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#f87171", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "4px" }}>
+                      <div style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "20px" : "24px", fontWeight: 800, color: "#38bdf8", letterSpacing: "-0.02em", lineHeight: 1, marginTop: "2px" }}>
                         99.8%
                       </div>
                     </div>
@@ -4876,9 +5173,10 @@ const LandingPage: React.FC = () => {
                   <div
                     style={{
                       height: isMobile ? "170px" : "210px",
-                      borderRadius: "8px",
+                      borderRadius: "10px",
                       overflow: "hidden",
-                      border: "1px solid rgba(251, 191, 36, 0.2)",
+                      border: "1px solid rgba(45, 212, 191, 0.25)",
+                      boxShadow: "0 8px 24px -6px rgba(0, 0, 0, 0.7), inset 0 0 20px rgba(45, 212, 191, 0.05)",
                       marginBottom: "18px",
                     }}
                   >
@@ -4886,10 +5184,10 @@ const LandingPage: React.FC = () => {
                   </div>
 
                   {/* Headline & Plain-English Explanation */}
-                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.25 }}>
+                  <h3 style={{ fontFamily: "Syne, sans-serif", fontSize: isMobile ? "17px" : "19px", fontWeight: 700, color: "#ffffff", margin: "0 0 8px 0", lineHeight: 1.3 }}>
                     Sensors see deep — but they are too far apart.
                   </h3>
-                  <p style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "rgba(186, 230, 253, 0.75)", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
+                  <p className="text-zinc-400" style={{ fontFamily: "Inter, sans-serif", fontSize: "13.5px", color: "#a1a1aa", lineHeight: 1.6, margin: "0 0 18px 0", flex: 1 }}>
                     Drifting robotic buoys descend 1,000 meters to record real underwater temperatures. But with only a few thousand floats worldwide, they leave 99% of the ocean unmeasured on any given day.
                   </p>
 
@@ -4897,19 +5195,21 @@ const LandingPage: React.FC = () => {
                   <div
                     style={{
                       borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-                      paddingTop: "12px",
+                      paddingTop: "14px",
                       display: "flex",
                       flexDirection: "column",
-                      gap: "5px",
+                      gap: "8px",
                       fontFamily: "Inter, sans-serif",
-                      fontSize: "11px",
+                      fontSize: "11.5px",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", color: "#fbbf24" }}>
-                      <span>✓ Strength: Measures real deep ocean water down to 1,000m</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", borderRadius: "6px", background: "rgba(52, 211, 153, 0.08)", border: "1px solid rgba(52, 211, 153, 0.2)", color: "#34d399" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700 }}>✓</span>
+                      <span><strong>Capability:</strong> Real in-situ physical profiling down to 1,000m</span>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", color: "rgba(248, 113, 113, 0.9)" }}>
-                      <span>✕ Blind spot: Too sparse — leaves 99% of the ocean blank</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", borderRadius: "6px", background: "rgba(56, 189, 248, 0.08)", border: "1px solid rgba(56, 189, 248, 0.2)", color: "#38bdf8" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 700 }}>✕</span>
+                      <span><strong>Limitation:</strong> Severe sparsity — leaves 99% ocean unmeasured</span>
                     </div>
                   </div>
                 </div>
@@ -4917,71 +5217,121 @@ const LandingPage: React.FC = () => {
 
               {/* Lower Dock: Plain English Solution */}
               <div
+                className="bg-black/95 border-t border-white/10"
                 style={{
-                  borderTop: "1px solid rgba(56, 189, 248, 0.2)",
-                  background: "linear-gradient(180deg, rgba(6, 26, 52, 0.75) 0%, rgba(3, 13, 28, 0.95) 100%)",
-                  padding: isMobile ? "18px 16px" : "22px 32px",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.10)",
+                  background: "linear-gradient(180deg, rgba(8, 8, 14, 0.95) 0%, rgba(3, 3, 5, 0.98) 100%)",
+                  padding: isMobile ? "20px 16px" : "26px 36px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "14px",
+                  gap: "16px",
+                  position: "relative",
                 }}
               >
                 {/* Synthesis Header */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div style={{ width: "28px", height: "28px", borderRadius: "6px", background: "rgba(56, 189, 248, 0.15)", border: "1px solid rgba(56, 189, 248, 0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Waves style={{ width: "16px", height: "16px", color: "#38bdf8" }} />
-                    </div>
-                    <span style={{ fontFamily: "Inter, sans-serif", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", color: "#7dd3fc", textTransform: "uppercase" }}>
-                      HOW OCEANEMBED BRIDGES THE GAP
-                    </span>
+                  <div
+                    style={{
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: isMobile ? "11px" : "12px",
+                      fontWeight: 600,
+                      letterSpacing: "0.16em",
+                      color: "#7dd3fc",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    HOW OCEANEMBED BRIDGES THE GAP
                   </div>
-                  <span style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.6)" }}>
+                  <span style={{ fontFamily: "Inter, monospace", fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", padding: "3px 8px", borderRadius: "4px", background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.08)" }}>
                     Physics + AI Reconstruction
                   </span>
                 </div>
 
                 {/* Comparison Table in Plain English */}
                 <div
+                  className="bg-black/70 border border-white/10"
                   style={{
                     display: "grid",
                     gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 1fr 1fr",
-                    gap: "8px",
-                    background: "rgba(2, 8, 18, 0.6)",
-                    border: "1px solid rgba(56, 189, 248, 0.12)",
-                    borderRadius: "8px",
-                    padding: "10px 14px",
+                    gap: "10px",
+                    background: "rgba(0, 0, 0, 0.75)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "10px",
+                    padding: isMobile ? "14px 16px" : "16px 20px",
                     fontFamily: "Inter, sans-serif",
-                    fontSize: isMobile ? "11px" : "12px",
+                    fontSize: isMobile ? "11px" : "12.5px",
                   }}
                 >
-                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>SOURCE</div>
-                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>SURFACE COVERAGE</div>
-                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>UNDERWATER DEPTH</div>
-                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(186, 230, 253, 0.45)", fontWeight: 600 }}>UPDATE SPEED</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(255, 255, 255, 0.4)", fontWeight: 600, fontSize: "11px", letterSpacing: "0.06em" }}>SOURCE</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(255, 255, 255, 0.4)", fontWeight: 600, fontSize: "11px", letterSpacing: "0.06em" }}>SURFACE COVERAGE</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(255, 255, 255, 0.4)", fontWeight: 600, fontSize: "11px", letterSpacing: "0.06em" }}>UNDERWATER DEPTH</div>
+                  <div style={{ display: isMobile ? "none" : "block", color: "rgba(255, 255, 255, 0.4)", fontWeight: 600, fontSize: "11px", letterSpacing: "0.06em" }}>UPDATE SPEED</div>
 
                   {/* Satellite Row */}
-                  <div style={{ color: "#93c5fd", fontWeight: 500 }}>01. Satellites</div>
-                  <div style={{ color: "rgba(186, 230, 253, 0.85)" }}>100% Global</div>
-                  <div style={{ color: "#f87171" }}>1 mm (Surface only)</div>
-                  <div style={{ color: "rgba(186, 230, 253, 0.85)" }}>Daily (24h)</div>
+                  <div style={{ color: "#ffffff", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                    <span style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", color: "#c084fc", fontWeight: 700 }}>01</span>
+                    <span>Satellites</span>
+                  </div>
+                  <div style={{ color: "#f4f4f5", fontWeight: 500, paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>100% Global</div>
+                  <div style={{ color: "#a1a1aa", paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>1 mm <span style={{ color: "#71717a", fontSize: "11px" }}>(Surface only)</span></div>
+                  <div style={{ color: "#a1a1aa", paddingBottom: "10px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>Daily (24h)</div>
 
                   {/* ARGO Row */}
-                  <div style={{ color: "#fde047", fontWeight: 500 }}>02. Ocean Buoys</div>
-                  <div style={{ color: "#f87171" }}>Sparse (&lt; 1% of ocean)</div>
-                  <div style={{ color: "rgba(253, 230, 138, 0.9)" }}>1,000m Deep</div>
-                  <div style={{ color: "rgba(253, 230, 138, 0.9)" }}>Every 10 Days</div>
+                  <div style={{ color: "#ffffff", fontWeight: 600, display: "flex", alignItems: "center", gap: "8px", paddingBottom: "12px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>
+                    <span style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", color: "#38bdf8", fontWeight: 700 }}>02</span>
+                    <span>Ocean Buoys</span>
+                  </div>
+                  <div style={{ color: "#a1a1aa", paddingBottom: "12px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>Sparse <span style={{ color: "#71717a", fontSize: "11px" }}>(&lt; 1% ocean)</span></div>
+                  <div style={{ color: "#f4f4f5", fontWeight: 500, paddingBottom: "12px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>1,000m Deep</div>
+                  <div style={{ color: "#a1a1aa", paddingBottom: "12px", borderBottom: "1px solid rgba(255, 255, 255, 0.06)" }}>Every 10 Days</div>
 
-                  {/* OceanEmbed Resolution Row */}
-                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>03. OceanEmbed AI</div>
-                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>100% Global</div>
-                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>Continuous 1,000m</div>
-                  <div style={{ color: "#38bdf8", fontWeight: 700 }}>Real-Time</div>
+                  {/* OceanEmbed Resolution Row - Purposeful Gradient Breakthrough */}
+                  <div
+                    style={{
+                      gridColumn: isMobile ? "1" : "1 / -1",
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 1fr 1fr",
+                      gap: "10px",
+                      margin: isMobile ? "8px 0 0" : "8px -10px -4px",
+                      padding: isMobile ? "12px 10px" : "12px 14px",
+                      borderRadius: "8px",
+                      background: "linear-gradient(90deg, rgba(52, 211, 153, 0.08) 0%, rgba(56, 189, 248, 0.10) 50%, rgba(168, 85, 247, 0.08) 100%)",
+                      border: "1px solid rgba(56, 189, 248, 0.28)",
+                      boxShadow: "0 0 24px -4px rgba(56, 189, 248, 0.12)",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", color: "#34d399", fontWeight: 700 }}>03</span>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          background: "linear-gradient(90deg, #34d399 0%, #38bdf8 50%, #c084fc 100%)",
+                          WebkitBackgroundClip: "text",
+                          WebkitTextFillColor: "transparent",
+                        }}
+                      >
+                        OceanEmbed AI
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#ffffff", fontWeight: 600 }}>
+                      <span style={{ color: "#38bdf8", fontSize: "12px", fontWeight: 700 }}>✓</span>
+                      <span>100% Global</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#ffffff", fontWeight: 600 }}>
+                      <span style={{ color: "#34d399", fontSize: "12px", fontWeight: 700 }}>✓</span>
+                      <span>Continuous 1,000m</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#ffffff", fontWeight: 600 }}>
+                      <span style={{ color: "#c084fc", fontSize: "12px", fontWeight: 700 }}>✓</span>
+                      <span>Real-Time Continuous</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Synthesis Conclusion */}
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13px" : "14px", color: "rgba(186, 230, 253, 0.85)", lineHeight: 1.55, margin: 0 }}>
-                  <strong style={{ color: "#ffffff" }}>The Result:</strong> OceanEmbed pairs daily space satellite scans with ocean physics equations, turning surface radar into a complete 3D temperature map from the surface down to 1,000 meters in real time.
+                <p className="text-zinc-400" style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13px" : "14px", color: "#a1a1aa", lineHeight: 1.6, margin: 0 }}>
+                  <strong style={{ background: "linear-gradient(90deg, #34d399 0%, #38bdf8 50%, #c084fc 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>The Result:</strong> OceanEmbed pairs daily space satellite scans with ocean physics equations, turning surface radar into a complete 3D temperature map from the surface down to 1,000 meters in real time.
                 </p>
               </div>
             </div>
@@ -4992,10 +5342,11 @@ const LandingPage: React.FC = () => {
       <section
         id="how-it-works"
         ref={howItWorksRef}
+        className="bg-black relative"
         style={{
           position: "relative",
           height: "1150vh",
-          background: "linear-gradient(180deg, rgba(4,28,51,0.95) 0%, rgba(3,18,36,0.98) 50%, rgba(2,12,24,1) 100%)",
+          background: "#000000",
           zIndex: 4,
         }}
       >
@@ -5039,10 +5390,11 @@ const LandingPage: React.FC = () => {
                 TURNING FLAT SATELLITES INTO 3D OCEANS.
               </h2>
               <p
+                className="text-zinc-400"
                 style={{
                   fontFamily: "Inter,sans-serif",
                   fontSize: isMobile ? "13.5px" : "16px",
-                  color: "rgba(186,230,253,0.72)",
+                  color: "#a1a1aa",
                   maxWidth: "680px",
                   margin: "14px auto 0",
                   lineHeight: 1.55,
@@ -5112,9 +5464,10 @@ const LandingPage: React.FC = () => {
       <section
         id="accuracy"
         ref={accuracySectionRef}
+        className="bg-black relative"
         style={{
           minHeight: "90vh",
-          background: "linear-gradient(180deg, rgba(4,21,39,0.88) 0%, rgba(5,26,46,0.95) 100%)",
+          background: "#000000",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           padding: isMobile ? "70px 18px" : "120px 32px",
@@ -5123,28 +5476,79 @@ const LandingPage: React.FC = () => {
           justifyContent: "center",
           position: "relative",
           zIndex: 4,
+          overflow: "hidden",
         }}
       >
-        <div style={{ maxWidth:"1140px", width:"100%" }}>
+        {/* Soft Ambient Glow Orb 2 */}
+        <div
+          className="absolute w-[600px] h-[600px] bg-purple-600/10 blur-[120px] rounded-full pointer-events-none"
+          style={{
+            position: "absolute",
+            width: "600px",
+            height: "600px",
+            background: "rgba(147, 51, 234, 0.10)",
+            filter: "blur(120px)",
+            borderRadius: "9999px",
+            pointerEvents: "none",
+            top: "20%",
+            right: "-100px",
+            zIndex: 0,
+          }}
+        />
+        <div style={{ maxWidth:"1140px", width:"100%", position: "relative", zIndex: 1 }}>
           <ScrollFlyIn from="bottom">
             <div style={{ marginBottom: isMobile ? "36px" : "64px" }}>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Verified Accuracy</div>
               <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>TESTED AGAINST REAL OCEAN BUOYS.</h2>
-              <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"640px", lineHeight:1.6 }}>We do not ask scientists to trust a black box. Every prediction is automatically cross-checked against real physical thermometers diving in the Indian Ocean.</p>
+              <p className="text-zinc-400" style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"#a1a1aa", maxWidth:"640px", lineHeight:1.6 }}>We do not ask scientists to trust a black box. Every prediction is automatically cross-checked against real physical thermometers diving in the Indian Ocean.</p>
             </div>
           </ScrollFlyIn>
           <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "32px" : "60px", alignItems:"center" }}>
             <ScrollFlyIn from="left" delay={100}>
               <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? "24px" : "44px" }}>
                 {([
-                  { val:"> 94%", label:"Pattern match with real depth curves (Correlation)" },
-                  { val:"~0.5°C", label:"Average margin of error across 1,000m (RMSE)" },
-                  { val:"±0.05°C", label:"Near-zero warm or cold drift (Bias)" },
-                ]).map(({ val, label }, i) => (
+                  {
+                    val: "> 94%",
+                    label: "Pattern match with real depth curves (Correlation)",
+                    className: "text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-emerald-400",
+                    gradientStyle: {
+                      backgroundImage: "linear-gradient(to right, #5eead4, #34d399)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      color: "transparent",
+                    }
+                  },
+                  {
+                    val: "-0.5°C",
+                    label: "Average margin of error across 1,000m (RMSE)",
+                    className: "text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400",
+                    gradientStyle: {
+                      backgroundImage: "linear-gradient(to right, #60a5fa, #818cf8)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      color: "transparent",
+                    }
+                  },
+                  {
+                    val: "±0.05°C",
+                    label: "Near-zero warm or cold drift (Bias)",
+                    className: "text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-pink-400",
+                    gradientStyle: {
+                      backgroundImage: "linear-gradient(to right, #e879f9, #f472b6)",
+                      WebkitBackgroundClip: "text",
+                      backgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
+                      color: "transparent",
+                    }
+                  },
+                ]).map(({ val, label, className: metricClass, gradientStyle }, i) => (
                   <div key={i}>
                     <div
-                      className="masked-ice"
+                      className={metricClass}
                       style={{
+                        ...gradientStyle,
                         fontFamily: "Syne, sans-serif",
                         fontSize: isMobile ? "clamp(2.6rem, 10vw, 3.8rem)" : "clamp(3.8rem, 7vw, 5.5rem)",
                         fontWeight: 800,
@@ -5156,7 +5560,7 @@ const LandingPage: React.FC = () => {
                     >
                       {val}
                     </div>
-                    <div style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13.5px" : "15px", color: "rgba(186, 230, 253, 0.65)", marginTop: isMobile ? "6px" : "12px" }}>
+                    <div className="text-zinc-400" style={{ fontFamily: "Inter, sans-serif", fontSize: isMobile ? "13.5px" : "15px", color: "#a1a1aa", marginTop: isMobile ? "6px" : "12px" }}>
                       {label}
                     </div>
                   </div>
@@ -5171,15 +5575,33 @@ const LandingPage: React.FC = () => {
       </section>
 
       <section
+        className="bg-black relative"
         style={{
           padding: isMobile ? "70px 18px 50px" : "120px 32px 80px",
-          background: "linear-gradient(180deg, rgba(5,26,46,0.92) 0%, rgba(4,21,39,0.97) 100%)",
-          borderTop: "1px solid rgba(186,230,253,0.08)",
+          background: "#000000",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
           position: "relative",
           zIndex: 4,
+          overflow: "hidden",
         }}
       >
-        <div style={{ maxWidth:"1140px", margin:"0 auto" }}>
+        {/* Soft Ambient Glow Orb 3 */}
+        <div
+          className="absolute w-[600px] h-[600px] bg-emerald-600/10 blur-[130px] rounded-full pointer-events-none"
+          style={{
+            position: "absolute",
+            width: "600px",
+            height: "600px",
+            background: "rgba(16, 185, 129, 0.08)",
+            filter: "blur(130px)",
+            borderRadius: "9999px",
+            pointerEvents: "none",
+            bottom: "-100px",
+            left: "20%",
+            zIndex: 0,
+          }}
+        />
+        <div style={{ maxWidth:"1140px", margin:"0 auto", position: "relative", zIndex: 1 }}>
           <ScrollFlyIn from="bottom">
             <div style={{ textAlign:"center", marginBottom: isMobile ? "44px" : "80px" }}>
               <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>Real-World Impact</div>
@@ -5188,15 +5610,54 @@ const LandingPage: React.FC = () => {
           </ScrollFlyIn>
           <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(280px,1fr))", gap: isMobile ? "28px" : "48px" }}>
             {([
-              { num:"01", from:"left" as const, title:"Monsoon and Cyclone Forecasting", body:"Subsurface ocean heat is the fuel tank for tropical cyclones and the Indian monsoon. Knowing what is 200 meters below tells meteorologists how much energy a storm will gain." },
-              { num:"02", from:"bottom" as const, title:"Sustainable Fisheries", body:"Thermal boundaries underwater dictate where nutrient-rich waters and marine life gather. Fisheries using this data can find productive zones without over-trawling." },
-              { num:"03", from:"right" as const, title:"Naval and Subsea Operations", body:"Sound travels differently through warm and cold water layers; accurate 3D thermal maps are vital for underwater navigation, sonar calibration, and submarine routing." },
-            ]).map(({ num, from, title, body }) => (
+              {
+                num: "01",
+                from: "left" as const,
+                title: "Monsoon and Cyclone Forecasting",
+                body: "Subsurface ocean heat is the fuel tank for tropical cyclones and the Indian monsoon. Knowing what is 200 meters below tells meteorologists how much energy a storm will gain.",
+                numClass: "number-outline-cyan",
+                strokeColor: "#22d3ee",
+                strokeGlow: "drop-shadow(0 0 14px rgba(34, 211, 238, 0.45)) drop-shadow(0 0 28px rgba(59, 130, 246, 0.25))",
+              },
+              {
+                num: "02",
+                from: "bottom" as const,
+                title: "Sustainable Fisheries",
+                body: "Thermal boundaries underwater dictate where nutrient-rich waters and marine life gather. Fisheries using this data can find productive zones without over-trawling.",
+                numClass: "number-outline-emerald",
+                strokeColor: "#34d399",
+                strokeGlow: "drop-shadow(0 0 14px rgba(52, 211, 153, 0.45)) drop-shadow(0 0 28px rgba(20, 184, 166, 0.25))",
+              },
+              {
+                num: "03",
+                from: "right" as const,
+                title: "Naval and Subsea Operations",
+                body: "Sound travels differently through warm and cold water layers; accurate 3D thermal maps are vital for underwater navigation, sonar calibration, and submarine routing.",
+                numClass: "number-outline-purple",
+                strokeColor: "#c084fc",
+                strokeGlow: "drop-shadow(0 0 14px rgba(192, 132, 252, 0.45)) drop-shadow(0 0 28px rgba(99, 102, 241, 0.25))",
+              },
+            ]).map(({ num, from, title, body, numClass, strokeColor, strokeGlow }) => (
               <ScrollFlyIn key={num} from={from} delay={parseInt(num) * 80}>
-                <div style={{ borderLeft:"1px solid rgba(186,230,253,0.18)", paddingLeft: isMobile ? "18px" : "28px" }}>
-                  <div className="number-outline-ice" style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "34px" : "42px", fontWeight:800, marginBottom:"12px" }}>{num}</div>
+                <div style={{ borderLeft:"1px solid rgba(255,255,255,0.12)", paddingLeft: isMobile ? "18px" : "28px" }}>
+                  <div
+                    className={numClass}
+                    style={{
+                      WebkitTextStroke: `1.5px ${strokeColor}`,
+                      WebkitTextFillColor: "transparent",
+                      color: "transparent",
+                      filter: strokeGlow,
+                      fontFamily: "Syne,sans-serif",
+                      fontSize: isMobile ? "34px" : "42px",
+                      fontWeight: 800,
+                      marginBottom: "12px",
+                      display: "inline-block",
+                    }}
+                  >
+                    {num}
+                  </div>
                   <h3 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "18px" : "20px", fontWeight:700, color:"#ffffff", marginBottom:"10px" }}>{title}</h3>
-                  <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "14px" : "15px", color:"rgba(186,230,253,0.65)", lineHeight:1.6 }}>{body}</p>
+                  <p className="text-zinc-400" style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "14px" : "15px", color:"#a1a1aa", lineHeight:1.6 }}>{body}</p>
                 </div>
               </ScrollFlyIn>
             ))}
@@ -5205,6 +5666,7 @@ const LandingPage: React.FC = () => {
       </section>
 
       <section
+        className="bg-black relative"
         style={{
           minHeight: isMobile ? "70vh" : "85vh",
           display: "flex",
@@ -5214,7 +5676,7 @@ const LandingPage: React.FC = () => {
           textAlign: "center",
           position: "relative",
           padding: isMobile ? "70px 18px 60px" : "80px 24px 180px",
-          background: "linear-gradient(180deg, rgba(4,21,39,0.96) 0%, #030e1e 60%, #020b16 100%)",
+          background: "linear-gradient(180deg, #000000 0%, #050505 60%, #000000 100%)",
           overflow: "hidden",
           zIndex: 4,
         }}
@@ -5281,7 +5743,7 @@ const LandingPage: React.FC = () => {
             justifyContent: isMobile ? "center" : "space-between",
             alignItems: "center",
             flexDirection: isMobile ? "column" : "row",
-            borderTop: "1px solid rgba(186,230,253,0.08)",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
             paddingTop: "20px",
             flexWrap: "wrap",
             gap: isMobile ? "16px" : "12px",
@@ -5290,12 +5752,12 @@ const LandingPage: React.FC = () => {
         >
           <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
             <img src={Logo} alt="OceanEmbed" style={{ width:"20px", height:"20px", opacity:0.7 }} />
-            <span style={{ fontFamily:"Syne,sans-serif", fontSize:"14px", fontWeight:700, color:"rgba(186,230,253,0.7)" }}>OceanEmbed</span>
-            <span style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"rgba(186,230,253,0.35)", marginLeft:"8px" }}>Subsurface Ocean Intelligence</span>
+            <span style={{ fontFamily:"Syne,sans-serif", fontSize:"14px", fontWeight:700, color:"#ffffff" }}>OceanEmbed</span>
+            <span className="text-zinc-400" style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"#a1a1aa", marginLeft:"8px" }}>Subsurface Ocean Intelligence</span>
           </div>
           <div style={{ display:"flex", gap:"24px" }}>
             {([{to:"/dashboard",label:"3D Globe"},{to:"/login",label:"Sign In"},{to:"/signup",label:"Sign Up"}]).map(({ to, label }) => (
-              <Link key={to} to={to} style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"rgba(186,230,253,0.4)", textDecoration:"none" }}>{label}</Link>
+              <Link key={to} to={to} className="text-zinc-400 hover:text-white" style={{ fontFamily:"Inter,sans-serif", fontSize:"12px", color:"#a1a1aa", textDecoration:"none", transition: "color 0.2s ease" }}>{label}</Link>
             ))}
           </div>
         </footer>
