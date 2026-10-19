@@ -1,23 +1,19 @@
 import React, { useEffect, useRef, useState, useMemo, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Text as DreiText, Edges, Billboard, Html } from "@react-three/drei";
+import { Text as DreiText } from "@react-three/drei";
 import * as THREE from "three";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  ResponsiveContainer,
-} from "recharts";
+  motion,
+  useScroll,
+  useSpring,
+  useTransform,
+  useMotionValue,
+  type MotionValue,
+  cubicBezier,
+} from "framer-motion";
 import {
-  ThermometerSun,
-  Droplets,
   Waves,
-  Navigation,
-  Wind,
   Menu,
   X,
 } from "lucide-react";
@@ -27,6 +23,7 @@ import argoSrc from "../assets/images/argo-float.svg";
 
 const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 const lerp = (a: number, b: number, t: number) => a + (b - a) * clamp(t, 0, 1);
+const easeExplode = cubicBezier(0.16, 1, 0.3, 1);
 
 interface ScrollFlyInProps {
   children: React.ReactNode;
@@ -222,29 +219,21 @@ const MOCK_SURFACE_TRENDS: Record<string, { date: string; value: number }[]> = {
 
 const STANDARD_DEPTHS_LIST = [
   { depth: 0, temp: 29.4 },
-  { depth: 5, temp: 29.3 },
   { depth: 10, temp: 29.1 },
-  { depth: 20, temp: 28.7 },
-  { depth: 30, temp: 28.2 },
+  { depth: 25, temp: 28.5 },
   { depth: 50, temp: 27.0 },
-  { depth: 75, temp: 25.1 },
   { depth: 100, temp: 22.8 },
-  { depth: 125, temp: 19.4 },
   { depth: 150, temp: 16.5 },
-  { depth: 200, temp: 13.8 },
+  { depth: 200, temp: 14.2 },
+  { depth: 250, temp: 12.8 },
   { depth: 300, temp: 11.2 },
+  { depth: 400, temp: 9.8 },
   { depth: 500, temp: 8.4 },
+  { depth: 600, temp: 7.2 },
   { depth: 700, temp: 6.2 },
+  { depth: 850, temp: 5.4 },
   { depth: 1000, temp: 4.8 },
 ];
-
-const getColorForTemp = (temp: number): THREE.Color => {
-  const colorHot = new THREE.Color('#ffa500'); // Orange for warm (30°C)
-  const colorCold = new THREE.Color('#4b0082'); // Indigo for cold (4°C)
-  // Map roughly 4°C - 30°C to 0 - 1
-  const ratio = Math.min(Math.max((temp - 4) / 26, 0), 1);
-  return colorCold.clone().lerp(colorHot, ratio);
-};
 
 const CanvasResizeSynchronizer = () => {
   const { gl, camera } = useThree();
@@ -269,95 +258,508 @@ const CanvasResizeSynchronizer = () => {
   return null;
 };
 
-const roundedRectShape = (() => {
-  const w = 5.6, h = 5.6, r = 0.4;
-  const shape = new THREE.Shape();
-  shape.moveTo(-w / 2 + r, -h / 2);
-  shape.lineTo(w / 2 - r, -h / 2);
-  shape.absarc(w / 2 - r, -h / 2 + r, r, -Math.PI / 2, 0, false);
-  shape.lineTo(w / 2, h / 2 - r);
-  shape.absarc(w / 2 - r, h / 2 - r, r, 0, Math.PI / 2, false);
-  shape.lineTo(-w / 2 + r, h / 2);
-  shape.absarc(-w / 2 + r, h / 2 - r, r, Math.PI / 2, Math.PI, false);
-  shape.lineTo(-w / 2, -h / 2 + r);
-  shape.absarc(-w / 2 + r, -h / 2 + r, r, Math.PI, Math.PI * 1.5, false);
-  return shape;
-})();
+// ─── ACT 02: HIGH-FIDELITY CSS-3D ISOMETRIC WAFER STACK (0.48 – 0.76) ───
+const MILESTONE_SLICES = [
+  { depth: 0, temp: 29.4, index: 0, tag: "SURFACE" },
+  { depth: 100, temp: 22.8, index: 4, tag: "THERMOCLINE" },
+  { depth: 250, temp: 12.8, index: 7, tag: "MESOPELAGIC" },
+  { depth: 500, temp: 8.4, index: 10, tag: "DEEP LAYER", isStaggered: true },
+  { depth: 1000, temp: 4.8, index: 14, tag: "ABYSSAL" },
+];
 
-interface SubsurfaceLayerMeshProps {
-  depth: number;
-  temp: number;
+const getSliceGradientTheme = (depth: number) => {
+  if (depth <= 25) {
+    return {
+      bg: "linear-gradient(135deg, rgba(251, 191, 36, 0.44) 0%, rgba(245, 158, 11, 0.16) 100%)",
+      border: "rgba(251, 191, 36, 0.55)",
+      accent: "#fbbf24",
+      glow: "rgba(251, 191, 36, 0.28)",
+      title: "Solar Mixed Layer",
+    };
+  } else if (depth <= 50) {
+    return {
+      bg: "linear-gradient(135deg, rgba(52, 211, 153, 0.38) 0%, rgba(16, 185, 129, 0.14) 100%)",
+      border: "rgba(52, 211, 153, 0.50)",
+      accent: "#34d399",
+      glow: "rgba(52, 211, 153, 0.24)",
+      title: "Upper Epipelagic",
+    };
+  } else if (depth === 100) {
+    return {
+      bg: "linear-gradient(135deg, rgba(16, 185, 129, 0.44) 0%, rgba(6, 182, 212, 0.20) 100%)",
+      border: "rgba(52, 211, 153, 0.85)",
+      accent: "#10b981",
+      glow: "rgba(16, 185, 129, 0.38)",
+      title: "Thermocline Core",
+    };
+  } else if (depth <= 200) {
+    return {
+      bg: "linear-gradient(135deg, rgba(56, 189, 248, 0.36) 0%, rgba(2, 132, 199, 0.14) 100%)",
+      border: "rgba(56, 189, 248, 0.50)",
+      accent: "#38bdf8",
+      glow: "rgba(56, 189, 248, 0.24)",
+      title: "Upper Mesopelagic",
+    };
+  } else if (depth <= 350) {
+    return {
+      bg: "linear-gradient(135deg, rgba(129, 140, 248, 0.34) 0%, rgba(99, 102, 241, 0.12) 100%)",
+      border: "rgba(129, 140, 248, 0.50)",
+      accent: "#818cf8",
+      glow: "rgba(129, 140, 248, 0.22)",
+      title: "Mesopelagic Gradient",
+    };
+  } else {
+    return {
+      bg: "linear-gradient(135deg, rgba(192, 132, 252, 0.32) 0%, rgba(126, 34, 206, 0.15) 100%)",
+      border: "rgba(192, 132, 252, 0.45)",
+      accent: "#c084fc",
+      glow: "rgba(192, 132, 252, 0.22)",
+      title: "Abyssal Bathypelagic",
+    };
+  }
+};
+
+interface Css3DSliceProps {
+  item: { depth: number; temp: number };
+  index: number;
+  p: MotionValue<number>;
+  globalProgress?: MotionValue<number>;
+  isMobile: boolean;
 }
 
-const SubsurfaceLayerMesh: React.FC<SubsurfaceLayerMeshProps> = ({ depth, temp }) => {
-  // Use logarithmic scale matching DepthModal.tsx to smoothly separate shallow layers
-  const normalizedDepth = Math.log(depth / 40 + 1) / Math.log(1000 / 40 + 1);
-  const yPos = 2.7 - (normalizedDepth * 5.5);
-  const color = useMemo(() => getColorForTemp(temp), [temp]);
+const Css3DSlice: React.FC<Css3DSliceProps> = ({
+  item,
+  index,
+  p,
+  globalProgress,
+  isMobile,
+}) => {
+  const theme = getSliceGradientTheme(item.depth);
+
+  const transform = useTransform(p, (val) => {
+    // Stage 1: Close-Up Zoom-Out, Orbit & Full Explosion (p: 0.00 -> 0.52)
+    const rawExplode = clamp(val / 0.52, 0, 1);
+    const explodeT = easeExplode(rawExplode);
+    const layerGap = explodeT * 18; // 0px -> 18px
+    const baseY = (index - 7) * layerGap;
+
+    let offsetY = baseY;
+    let rotX = 25 + explodeT * 43; // 25deg -> 68deg
+    let rotZ = -5 - explodeT * 43; // -5deg -> -48deg
+    let s = 3.2 - explodeT * 2.25; // 3.2 -> 0.95
+
+    if (val > 0.52 && val <= 0.64) {
+      // Stage 2: Plateau Hold (p: 0.52 -> 0.64)
+      rotZ = -48;
+      rotX = 68;
+      s = 0.95;
+      offsetY = (index - 7) * 18;
+    } else if (val > 0.64) {
+      // Stage 3: Isolate 100m layer & Zoom into Act 03 (p: 0.64 -> 1.00)
+      const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+
+      if (index === 4) {
+        // Isolated Slice 4 (100m Thermocline) - Glides smoothly into Act 03 starting transform by latest = 0.748!
+        const centerT = clamp((isolateT - 0.25) / 0.65, 0, 1);
+        const eCenter = centerT * centerT * (3 - 2 * centerT);
+        offsetY = -54 * (1 - eCenter); // -54px -> 0px (vertical center!)
+        rotZ = -48 + eCenter * 23; // -48deg -> -25deg (matches Act 03 starting azimuth!)
+        rotX = 68 - eCenter * 46; // 68deg -> 22deg (matches Act 03 steep top-down starting pitch!)
+        s = 0.95 + eCenter * 0.55; // 0.95 -> 1.50 (matches Act 03 initial scale!)
+      } else if (index < 4) {
+        // Upper slices (0m - 50m) fly upward into the air (-90px)
+        const flyT = clamp(isolateT / 0.65, 0, 1);
+        const eFly = flyT * flyT * (3 - 2 * flyT);
+        offsetY = (index - 7) * 18 - 90 * eFly;
+        rotZ = -48;
+        rotX = 68;
+        s = 0.95;
+      } else {
+        // Deeper slices (150m - 1000m) drop downward into abyss (+130px)
+        const flyT = clamp(isolateT / 0.65, 0, 1);
+        const eFly = flyT * flyT * (3 - 2 * flyT);
+        offsetY = (index - 7) * 18 + 130 * eFly;
+        rotZ = -48;
+        rotX = 68;
+        s = 0.95;
+      }
+    }
+
+    return `translate3d(0px, ${offsetY.toFixed(2)}px, 0px) rotateX(${rotX.toFixed(2)}deg) rotateZ(${rotZ.toFixed(2)}deg) scale(${s.toFixed(3)})`;
+  });
+
+  const opacity = useTransform(globalProgress || p, (latest) => {
+    const isGlobal = globalProgress !== undefined;
+    const pVal = isGlobal ? clamp((latest - 0.48) / 0.28, 0, 1) : latest;
+
+    if (pVal <= 0.64) {
+      return 1;
+    }
+
+    // Stage 3
+    const isolateT = clamp((pVal - 0.64) / 0.36, 0, 1);
+
+    if (index === 4) {
+      // Slice 4 stays at opacity 1 until precisely handing off to flat 3D canvas (0.748 -> 0.762)
+      if (isGlobal) {
+        if (latest <= 0.748) return 1;
+        if (latest >= 0.762) return 0;
+        // Clean linear drop to 0 before extrusion begins
+        const transitionT = (latest - 0.748) / (0.762 - 0.748);
+        return 1 - transitionT;
+      }
+      if (latest < 0.92) return 1;
+      const dissolveT = clamp((latest - 0.92) / 0.08, 0, 1);
+      const eDissolve = dissolveT * dissolveT * (3 - 2 * dissolveT);
+      return 1 - eDissolve;
+    } else {
+      // All other 14 slices fly away and dissolve over isolateT: 0.0 -> 0.65
+      const flyT = clamp(isolateT / 0.65, 0, 1);
+      const eFly = flyT * flyT * (3 - 2 * flyT);
+      return 1 - eFly;
+    }
+  });
+
+  const boxShadow = useTransform(p, (val) => {
+    if (index !== 4) {
+      return `0 4px 18px rgba(0, 0, 0, 0.45), inset 0 0 16px ${theme.glow}`;
+    }
+    if (val <= 0.64) {
+      return `0 4px 18px rgba(0, 0, 0, 0.45), inset 0 0 16px ${theme.glow}`;
+    }
+    const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+    const glowT = clamp(isolateT / 0.35, 0, 1);
+    const eGlow = glowT * glowT * (3 - 2 * glowT);
+    const alpha = (0.45 * eGlow).toFixed(2);
+    const innerAlpha = (0.35 * eGlow).toFixed(2);
+    return `0 0 35px rgba(16, 185, 129, ${alpha}), 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 0 25px rgba(16, 185, 129, ${innerAlpha})`;
+  });
+
+  const border = useTransform(p, (val) => {
+    if (index !== 4 || val <= 0.64) return `1.5px solid ${theme.border}`;
+    const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+    return isolateT > 0.25 ? "1.5px solid rgba(52, 211, 153, 0.95)" : `1.5px solid ${theme.border}`;
+  });
+
+  const wireGridOpacity = useTransform(p, (val) => {
+    if (index !== 4 || val < 0.64) return 0;
+    const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+    return clamp((isolateT - 0.15) / 0.30, 0, 1);
+  });
+
+  const zIndex = useTransform(p, (val) => (val > 0.64 && index === 4 ? 30 : 20 - index));
+
+  const sliceWidth = isMobile ? "180px" : "230px";
+  const sliceHeight = isMobile ? "180px" : "230px";
+  const halfOffset = isMobile ? "-90px" : "-115px";
 
   return (
-    <group position={[0, yPos, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <shapeGeometry args={[roundedRectShape]} />
-        <meshPhysicalMaterial
-          color={color}
-          transparent
-          opacity={0.68}
-          roughness={0.18}
-          metalness={0.1}
-          clearcoat={0.9}
-          clearcoatRoughness={0.15}
-          side={THREE.DoubleSide}
-        />
-        <Edges linewidth={1} color="#ffffff" transparent opacity={0.28} />
-      </mesh>
+    <motion.div
+      style={{
+        position: "absolute",
+        width: sliceWidth,
+        height: sliceHeight,
+        left: "50%",
+        top: "50%",
+        marginLeft: halfOffset,
+        marginTop: halfOffset,
+        borderRadius: "14px",
+        transformOrigin: "center center",
+        transform,
+        opacity,
+        background: theme.bg,
+        border,
+        boxShadow,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        pointerEvents: "none",
+        zIndex,
+      }}
+    >
+      {/* Subtle inner thermal contours / cross-grid for physical oceanographic feel */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "14px",
+          borderRadius: "9px",
+          border: `1px dashed ${theme.border}`,
+          opacity: 0.35,
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          width: "42px",
+          height: "42px",
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${theme.accent}33 0%, transparent 70%)`,
+          pointerEvents: "none",
+        }}
+      />
 
-      {/* Depth billboard text label on left-front corner */}
-      <group position={[-3.1, 0, 3.1]}>
-        <Billboard>
-          <DreiText
-            fontSize={0.24}
-            color="#ffffff"
-            fillOpacity={0.95}
-            fontWeight={600}
-            anchorX="right"
-            anchorY="middle"
-          >
-            {`${depth}m`}
-          </DreiText>
-        </Billboard>
-      </group>
-
-      {/* Temperature billboard text label on right corner */}
-      <group position={[3.1, 0, 0]}>
-        <Billboard>
-          <DreiText
-            fontSize={0.24}
-            color="#8bb6d6"
-            fillOpacity={0.95}
-            fontWeight={600}
-            anchorX="left"
-            anchorY="middle"
-          >
-            {`${temp.toFixed(1)}°C`}
-          </DreiText>
-        </Billboard>
-      </group>
-    </group>
+      {/* Wire gridlines etched across isolated 100m slice (Index 4) */}
+      {index === 4 && (
+        <motion.div
+          style={{
+            position: "absolute",
+            inset: "8px",
+            borderRadius: "10px",
+            pointerEvents: "none",
+            opacity: wireGridOpacity,
+            backgroundImage: `
+              linear-gradient(to right, rgba(52, 211, 153, 0.45) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(52, 211, 153, 0.45) 1px, transparent 1px)
+            `,
+            backgroundSize: isMobile ? "16px 16px" : "20px 20px",
+            boxShadow: "inset 0 0 20px rgba(16, 185, 129, 0.35)",
+          }}
+        >
+          {/* Micro corner coordinate brackets */}
+          <div style={{ position: "absolute", top: 3, left: 3, width: 8, height: 8, borderTop: "2px solid #34d399", borderLeft: "2px solid #34d399" }} />
+          <div style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, borderTop: "2px solid #34d399", borderRight: "2px solid #34d399" }} />
+          <div style={{ position: "absolute", bottom: 3, left: 3, width: 8, height: 8, borderBottom: "2px solid #34d399", borderLeft: "2px solid #34d399" }} />
+          <div style={{ position: "absolute", bottom: 3, right: 3, width: 8, height: 8, borderBottom: "2px solid #34d399", borderRight: "2px solid #34d399" }} />
+          {/* Center coordinate crosshair */}
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 14, height: 14 }}>
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "1px", background: "#34d399" }} />
+            <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: "1px", background: "#34d399" }} />
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 };
 
-const Subsurface3DProfileModel: React.FC = () => {
+interface MilestoneSliceLabelRowProps {
+  item: { depth: number; temp: number; index: number; tag: string; isStaggered?: boolean };
+  p: MotionValue<number>;
+  isMobile: boolean;
+}
+
+const MilestoneSliceLabelRow: React.FC<MilestoneSliceLabelRowProps> = ({
+  item,
+  p,
+  isMobile,
+}) => {
+  const theme = getSliceGradientTheme(item.depth);
+
+  const transform = useTransform(p, (val) => {
+    const rawExplode = clamp(val / 0.52, 0, 1);
+    const explodeT = easeExplode(rawExplode);
+    const gap = explodeT * 18;
+    const baseY = (item.index - 7) * gap;
+
+    if (val <= 0.64) {
+      return `translateY(-50%) translateY(${baseY.toFixed(1)}px)`;
+    }
+
+    const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+
+    if (item.index === 4) {
+      const centerT = clamp((isolateT - 0.30) / 0.70, 0, 1);
+      const eCenter = centerT * centerT * (3 - 2 * centerT);
+      const y = -54 * (1 - eCenter);
+      return `translateY(-50%) translateY(${y.toFixed(1)}px)`;
+    } else if (item.index < 4) {
+      const flyT = clamp(isolateT / 0.65, 0, 1);
+      const eFly = flyT * flyT * (3 - 2 * flyT);
+      const y = (item.index - 7) * 18 - 90 * eFly;
+      return `translateY(-50%) translateY(${y.toFixed(1)}px)`;
+    } else {
+      const flyT = clamp(isolateT / 0.65, 0, 1);
+      const eFly = flyT * flyT * (3 - 2 * flyT);
+      const y = (item.index - 7) * 18 + 130 * eFly;
+      return `translateY(-50%) translateY(${y.toFixed(1)}px)`;
+    }
+  });
+
+  const opacity = useTransform(p, (val) => {
+    const rawExplode = clamp(val / 0.52, 0, 1);
+    const explodeT = easeExplode(rawExplode);
+    // Keep milestone labels hidden (opacity: 0) while explodeT < 0.40, fade in cleanly between 0.40 -> 0.55
+    const fadeIn = clamp((explodeT - 0.40) / 0.15, 0, 1);
+
+    if (val <= 0.64) {
+      return fadeIn;
+    }
+
+    const isolateT = clamp((val - 0.64) / 0.36, 0, 1);
+
+    if (item.index === 4) {
+      // 100m stays visible until final 12% (p: 0.88 -> 1.00)
+      if (val < 0.88) return fadeIn;
+      const dissolveT = clamp((val - 0.88) / 0.12, 0, 1);
+      const eDissolve = dissolveT * dissolveT * (3 - 2 * dissolveT);
+      return fadeIn * (1 - eDissolve);
+    } else {
+      // Non-100m fade out over isolateT: 0.0 -> 0.65
+      const flyT = clamp(isolateT / 0.65, 0, 1);
+      const eFly = flyT * flyT * (3 - 2 * flyT);
+      return fadeIn * (1 - eFly);
+    }
+  });
+
+  const leaderLineWidth = isMobile ? 12 : item.isStaggered ? 36 : 20;
+
   return (
-    <group position={[-0.2, 0, 0]}>
-      {STANDARD_DEPTHS_LIST.map((pred) => (
-        <SubsurfaceLayerMesh
-          key={pred.depth}
-          depth={pred.depth}
-          temp={pred.temp}
+    <motion.div
+      style={{
+        position: "absolute",
+        left: isMobile ? "calc(50% + 72px)" : "calc(50% + 140px)",
+        top: "50%",
+        transform,
+        opacity,
+        display: "flex",
+        alignItems: "center",
+        pointerEvents: "none",
+        zIndex: 35,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {/* Sleek connector line extending from slice edge to badge */}
+      <div
+        style={{
+          width: `${leaderLineWidth}px`,
+          height: "1.5px",
+          background: `linear-gradient(90deg, ${theme.accent} 0%, rgba(255,255,255,0.7) 100%)`,
+          boxShadow: `0 0 6px ${theme.accent}`,
+          flexShrink: 0,
+        }}
+      />
+
+      {/* High-contrast Glassmorphic Pill */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: isMobile ? "6px" : "8px",
+          padding: isMobile ? "4px 8px" : "6px 13px",
+          borderRadius: "9px",
+          background: "rgba(3, 14, 28, 0.95)",
+          border: `1.5px solid ${theme.border}`,
+          boxShadow: `0 8px 24px rgba(0, 0, 0, 0.8), 0 0 14px ${theme.glow}`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        {/* Glowing Indicator Dot */}
+        <span
+          style={{
+            display: "inline-block",
+            width: isMobile ? "5px" : "7px",
+            height: isMobile ? "5px" : "7px",
+            borderRadius: "50%",
+            background: theme.accent,
+            boxShadow: `0 0 8px ${theme.accent}`,
+            flexShrink: 0,
+          }}
+        />
+
+        {/* Depth */}
+        <span
+          style={{
+            fontFamily: "Inter, monospace",
+            fontSize: isMobile ? "12px" : "14.5px",
+            fontWeight: 800,
+            color: "#ffffff",
+            letterSpacing: "0.03em",
+          }}
+        >
+          {item.depth}m
+        </span>
+
+        {/* Divider */}
+        <span
+          style={{
+            fontSize: isMobile ? "10px" : "12px",
+            color: "rgba(255, 255, 255, 0.35)",
+            fontWeight: 400,
+          }}
+        >
+          /
+        </span>
+
+        {/* Temperature */}
+        <span
+          style={{
+            fontFamily: "Inter, monospace",
+            fontSize: isMobile ? "12px" : "14.5px",
+            fontWeight: 700,
+            color: theme.accent,
+            letterSpacing: "0.02em",
+          }}
+        >
+          {item.temp.toFixed(1)}°C
+        </span>
+
+        {/* Layer Tag (Desktop only) */}
+        {!isMobile && (
+          <span
+            style={{
+              fontFamily: "Inter, sans-serif",
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "rgba(186, 230, 253, 0.7)",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              marginLeft: "3px",
+              paddingLeft: "6px",
+              borderLeft: "1px solid rgba(255, 255, 255, 0.15)",
+            }}
+          >
+            {item.tag}
+          </span>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
+export const IsometricCss3DSlicesStack: React.FC<{
+  progress: MotionValue<number>;
+  isMobile: boolean;
+}> = ({ progress, isMobile }) => {
+  // Local progress p of Act 02 normalized from 0.00 to 1.00 (spanning global 0.48 to 0.76)
+  const p = useTransform(progress, [0.48, 0.76], [0, 1], { clamp: true });
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        perspective: "1200px",
+        perspectiveOrigin: "50% 50%",
+        transformStyle: "preserve-3d",
+      }}
+    >
+      {/* 15 3D Slices Stack */}
+      {STANDARD_DEPTHS_LIST.map((item, index) => (
+        <Css3DSlice
+          key={item.depth}
+          item={item}
+          index={index}
+          p={p}
+          globalProgress={progress}
+          isMobile={isMobile}
         />
       ))}
-    </group>
+
+      {/* Prominent, Razor-Sharp Milestone Depth & Temperature Labels */}
+      {MILESTONE_SLICES.map((item) => (
+        <MilestoneSliceLabelRow
+          key={item.depth}
+          item={item}
+          p={p}
+          isMobile={isMobile}
+        />
+      ))}
+    </div>
   );
 };
 
@@ -462,7 +864,7 @@ const SurfaceAxes: React.FC<{ size?: number; latRange?: [number, number]; lngRan
   const lngStep = (lngRange[1] - lngRange[0]) / numSteps;
 
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
+    <group>
       {/* Base Grid at Z=0 (Mean Temperature Datum Plane) */}
       <gridHelper
         args={[size, 20, 0xffffff, 0xffffff]}
@@ -511,12 +913,37 @@ const SurfaceAxes: React.FC<{ size?: number; latRange?: [number, number]; lngRan
   );
 };
 
-const ThermoclineTopographicScene: React.FC = () => {
+interface ThermoclineTopographicSceneProps {
+  terrainProgress?: number;
+  progress?: MotionValue<number>;
+  onProjectedCoords?: (peak: [number, number], trough: [number, number], deployProgress: number) => void;
+}
+
+const ThermoclineTopographicScene: React.FC<ThermoclineTopographicSceneProps> = ({
+  terrainProgress = 1,
+  progress,
+}) => {
   const size = 5;
   const gridRes = THERMOCLINE_GRID_DATA.size;
   const meanTemp = THERMOCLINE_GRID_DATA.meanTemp;
-  const zScale = 0.62;
+  const zScale = 0.58;
+  const groupRef = useRef<THREE.Group>(null);
+  const lastDispRef = useRef<number>(-1);
 
+  // Precomputed baseline topographic heights (displacementScale = 1.0)
+  const baseHeights = useMemo(() => {
+    const heights = new Float32Array(gridRes * gridRes);
+    for (let y = 0; y < gridRes; y++) {
+      for (let x = 0; x < gridRes; x++) {
+        const i = y * gridRes + x;
+        const t = THERMOCLINE_GRID_DATA.grid[y][x];
+        heights[i] = (t - meanTemp) * zScale;
+      }
+    }
+    return heights;
+  }, [gridRes, meanTemp]);
+
+  // Mesh geometry initialized as a COMPLETELY FLAT 2D plane matching the 100m CSS layer
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(size, size, gridRes - 1, gridRes - 1);
     const pos = geo.attributes.position;
@@ -530,12 +957,11 @@ const ThermoclineTopographicScene: React.FC = () => {
       for (let x = 0; x < gridRes; x++) {
         const i = y * gridRes + x;
         const t = THERMOCLINE_GRID_DATA.grid[y][x];
-        // Pivoted at meanTemp: hotter > 0 (above axes), colder < 0 (below axes)
-        const zHeight = (t - meanTemp) * zScale;
         const norm = Math.max(0, Math.min(1, (t - minTemp) / range));
         const color = getViridisColor(norm);
 
-        pos.setZ(i, zHeight);
+        // Initially Z is 0.0 (perfect flat 2D slice)
+        pos.setZ(i, 0.0);
         colors[i * 3] = color.r;
         colors[i * 3 + 1] = color.g;
         colors[i * 3 + 2] = color.b;
@@ -545,21 +971,57 @@ const ThermoclineTopographicScene: React.FC = () => {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
     return geo;
-  }, [gridRes, meanTemp]);
+  }, [gridRes, size]);
 
-  // Point query at 12.5°N, 67.5°E (center of Arabian Sea box [10-15°N, 65-70°E])
-  const queryPin = useMemo(() => {
-    const queryX = 0;
-    const queryY = 0;
-    const centerT = THERMOCLINE_GRID_DATA.centerT;
-    const surfaceZ = (centerT - meanTemp) * zScale;
-    return { x: queryX, y: queryY, z: surfaceZ, temp: centerT };
-  }, [meanTemp]);
+  // CONTINUOUS CINEMATIC FLIGHT & DYNAMIC GEOMETRY MORPH
+  useFrame(({ camera }) => {
+    const p = progress ? progress.get() : lerp(0.76, 1.00, terrainProgress);
+    // Act 03 scroll progress normalized from 0.00 to 1.00 (spanning global 0.762 to 1.00)
+    // Ensures displacementScale is strictly 0.0 until CSS layer has completely dissolved!
+    const act3Progress = clamp((p - 0.762) / (1.00 - 0.762), 0, 1);
+
+    // 1. Dynamic Extrusion: flat plane (displacementScale = 0.0) -> full mountains (1.0)
+    // Extrusion finishes smoothly by act3Progress = 0.35
+    const morphT = clamp(act3Progress / 0.35, 0, 1);
+    const eMorph = morphT * morphT * (3 - 2 * morphT);
+    const displacementScale = eMorph;
+
+    if (Math.abs(displacementScale - lastDispRef.current) > 0.0005) {
+      lastDispRef.current = displacementScale;
+      const pos = geometry.attributes.position;
+      for (let i = 0; i < gridRes * gridRes; i++) {
+        pos.setZ(i, baseHeights[i] * displacementScale);
+      }
+      pos.needsUpdate = true;
+      geometry.computeVertexNormals();
+    }
+
+    // 2. Continuous Camera Flight throughout entire Act 03 (Zero dead scroll space!):
+    // Pitch: interpolates continuously from steep top-down view (22deg) down to dramatic low-angle profile (68deg)
+    const pitchDeg = lerp(22, 68, act3Progress);
+    const pitchRad = (pitchDeg * Math.PI) / 180;
+
+    // Azimuth: rotates continuously by a full 45 degrees over the entire Act 03 scroll duration (-25deg -> +20deg)
+    const startAzimuthDeg = -25;
+    const azimuthDeg = startAzimuthDeg + act3Progress * 45;
+    const azimuthRad = (azimuthDeg * Math.PI) / 180;
+
+    // Spherical camera orbit with generous margins
+    const radius = 7.7;
+    const camY = radius * Math.cos(pitchRad);
+    const horizDist = radius * Math.sin(pitchRad);
+    const camX = horizDist * Math.sin(azimuthRad);
+    const camZ = horizDist * Math.cos(azimuthRad);
+
+    camera.position.set(camX, camY, camZ);
+    const targetY = lerp(-0.25, 0.12, act3Progress);
+    camera.lookAt(0, targetY, 0);
+  });
 
   return (
-    <group position={[-0.2, 0, 0]}>
-      {/* 3D Topographic Mesh */}
+    <group ref={groupRef} position={[0, -0.35, 0]}>
       <group rotation={[-Math.PI / 2, 0, 0]}>
+        {/* 3D Topographic Mesh */}
         <mesh geometry={geometry}>
           <meshStandardMaterial
             vertexColors
@@ -569,74 +1031,45 @@ const ThermoclineTopographicScene: React.FC = () => {
           />
         </mesh>
 
-        {/* 3D Query Pin (clean, properly anchored and lowered) */}
-        <group position={[queryPin.x, queryPin.y, queryPin.z]}>
-          {/* Surface contact ring */}
-          <mesh position={[0, 0, 0.005]}>
-            <ringGeometry args={[0.04, 0.07, 16]} />
-            <meshBasicMaterial color="#ffffff" transparent opacity={0.6} side={THREE.DoubleSide} />
-          </mesh>
-
-          {/* White needle cylinder: anchored through surface (-0.08 to +0.70) */}
-          <mesh position={[0, 0, 0.31]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.014, 0.014, 0.78, 8]} />
-            <meshBasicMaterial color="#ffffff" />
-          </mesh>
-
-          {/* Red ball: lowered to sit directly atop the needle at Z = 0.70 */}
-          <mesh position={[0, 0, 0.70]}>
-            <sphereGeometry args={[0.065, 16, 16]} />
-            <meshStandardMaterial color="#ef4444" roughness={0.2} metalness={0.1} emissive="#ef4444" emissiveIntensity={0.6} />
-          </mesh>
-
-          {/* Tooltip: placed cleanly above the red ball at Z = 0.88 */}
-          <Html position={[0, 0, 0.88]} center>
-            <div style={{
-              color: 'white',
-              fontSize: '12px',
-              fontWeight: 600,
-              fontFamily: 'Inter, monospace',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.85))',
-              whiteSpace: 'nowrap',
-              background: 'rgba(8, 20, 36, 0.9)',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              pointerEvents: 'none'
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-              <span>{queryPin.temp.toFixed(2)} °C</span>
-            </div>
-          </Html>
-        </group>
+        {/* Surface Axes with Lat / Lon Labels at Z=0 */}
+        <SurfaceAxes size={5} latRange={[10, 15]} lngRange={[65, 70]} />
       </group>
-
-      {/* Surface Axes with Lat / Lon Labels at Z=0 */}
-      <SurfaceAxes size={5} latRange={[10, 15]} lngRange={[65, 70]} />
     </group>
   );
 };
 
-const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metric }) => {
+export const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds'; visible?: boolean }> = ({ metric, visible = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!visible) return;
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     let animId: number;
-    const rect = canvas.getBoundingClientRect();
-    const width = (canvas.width = Math.round(rect.width) || 380);
-    const height = (canvas.height = Math.round(rect.height) || 240);
+    let width = (canvas.width = container.clientWidth || 420);
+    let height = (canvas.height = container.clientHeight || 260);
+
+    const handleResize = () => {
+      if (!container || !canvas) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+        width = canvas.width = w;
+        height = canvas.height = h;
+      }
+    };
+
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(container);
 
     const isCurrents = metric === 'Currents';
     const particleColor = isCurrents ? '#fde725' : '#d4a5a5';
-    const numParticles = isCurrents ? 95 : 120;
+    const numParticles = isCurrents ? 105 : 125;
     const maxLife = isCurrents ? 90 : 55;
     const minLife = isCurrents ? 45 : 25;
 
@@ -653,12 +1086,11 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
       };
     });
 
-    ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = '#091528';
     ctx.fillRect(0, 0, width, height);
 
     const render = () => {
-      // Crisp fade to avoid elongated blurry trails
-      ctx.fillStyle = isCurrents ? 'rgba(15, 23, 42, 0.17)' : 'rgba(15, 23, 42, 0.20)';
+      ctx.fillStyle = isCurrents ? 'rgba(9, 21, 40, 0.18)' : 'rgba(9, 21, 40, 0.20)';
       ctx.fillRect(0, 0, width, height);
 
       ctx.strokeStyle = particleColor;
@@ -671,21 +1103,16 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
         p.prevY = p.y;
 
         if (isCurrents) {
-          // Organic Oceanic Gyre with natural meanders (subtly boosted speed)
-          const nx = (p.x - width * 0.46) / (width * 0.42);
-          const ny = (p.y - height * 0.50) / (height * 0.42);
-
-          // Tilted elliptical coordinates (-22° basin alignment)
+          const nx = (p.x - width * 0.46) / (width * 0.42 || 1);
+          const ny = (p.y - height * 0.50) / (height * 0.42 || 1);
           const rx = nx * 0.93 + ny * 0.37;
           const ry = -nx * 0.37 + ny * 0.93;
           const rSq = (rx * 0.82) ** 2 + (ry * 1.38) ** 2;
 
-          // Main elliptical circulation component
           const gyreMag = Math.exp(-rSq * 0.95);
           const circX = -ry * 1.55 * gyreMag;
           const circY = (rx * 1.15 + 0.12) * gyreMag;
 
-          // Natural planetary fluid meanders & oceanic wave turbulence
           const wave1 = 0.38 * Math.sin(nx * 2.6 + ny * 1.4);
           const wave2 = 0.32 * Math.cos(nx * 1.8 - ny * 2.2);
           const driftX = -0.35 + 0.22 * Math.sin(ny * 2.2);
@@ -694,7 +1121,6 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
           p.x += (circX + driftX + wave1 * 0.35) * 1.25;
           p.y += (circY + driftY + wave2 * 0.30) * 1.25;
         } else {
-          // Atmospheric Monsoon Winds: steady diagonal airflow from NE to SW
           p.x -= 3.0 + Math.sin(p.y * 0.035) * 0.45;
           p.y += 1.65 + Math.cos(p.x * 0.025) * 0.35;
         }
@@ -706,7 +1132,6 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
         ctx.lineTo(p.x, p.y);
         ctx.stroke();
 
-        // Respawn uniformly across the entire canvas when out of bounds or expired
         if (p.age > p.life || p.x < 0 || p.x > width || p.y < 0 || p.y > height) {
           p.x = Math.random() * width;
           p.y = Math.random() * height;
@@ -721,523 +1146,2081 @@ const VectorParticleCanvas: React.FC<{ metric: 'Currents' | 'Winds' }> = ({ metr
     };
 
     render();
-    return () => cancelAnimationFrame(animId);
-  }, [metric]);
+    return () => {
+      cancelAnimationFrame(animId);
+      ro.disconnect();
+    };
+  }, [metric, visible]);
 
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: 0 }}>
-      <div style={{ position: 'relative', width: '100%', maxWidth: '380px', height: '240px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', background: '#0f172a' }}>
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+    <div
+      ref={containerRef}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        borderRadius: '14px',
+        overflow: 'hidden',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+        background: '#091528',
+      }}
+    >
+      <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
-        {/* Dynamic Mode Header Tag */}
-        <div style={{ position: 'absolute', top: 7, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px', padding: '2px 10px', fontSize: '9.5px', color: metric === 'Currents' ? '#fde725' : '#d4a5a5', fontWeight: 600, letterSpacing: '0.5px', pointerEvents: 'none', whiteSpace: 'nowrap' }}>
-          {metric === 'Currents' ? 'OCEAN CURRENTS & CIRCULATION' : 'MONSOON WINDS & AIRFLOW'}
+      {/* Dynamic Mode Header Tag */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(6, 20, 38, 0.85)',
+          border: '1px solid rgba(255, 255, 255, 0.14)',
+          borderRadius: '20px',
+          padding: '2px 10px',
+          fontSize: '9.5px',
+          color: metric === 'Currents' ? '#fde725' : '#d4a5a5',
+          fontWeight: 700,
+          letterSpacing: '0.5px',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        {metric === 'Currents' ? 'OCEAN CURRENTS & CIRCULATION' : 'MONSOON WINDS & AIRFLOW'}
+      </div>
+
+      {/* Geographic Bounds HUD */}
+      <div style={{ position: 'absolute', top: 8, left: 10, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>15.0°N</div>
+      <div style={{ position: 'absolute', bottom: 8, left: 10, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>10.0°N</div>
+      <div style={{ position: 'absolute', bottom: 8, right: 10, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>70.0°E</div>
+      <div style={{ position: 'absolute', top: 8, right: 10, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>65.0°E</div>
+    </div>
+  );
+};
+
+interface AnimatedCalloutPointerProps {
+  x: number; // percentage in container (0 - 100)
+  y: number; // percentage in container (0 - 100)
+  title: string;
+  badgeTag?: string;
+  description: string;
+  accentColor: string;
+  visible: boolean;
+  align?: "left" | "right";
+  verticalAlign?: "top" | "bottom";
+}
+
+export const AnimatedCalloutPointer: React.FC<AnimatedCalloutPointerProps> = ({
+  x,
+  y,
+  title,
+  badgeTag,
+  description,
+  accentColor,
+  visible,
+  align = "right",
+  verticalAlign = "top",
+}) => {
+  const isLeft = align === "left";
+  const isBottom = verticalAlign === "bottom";
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: `${x}%`,
+        top: `${y}%`,
+        pointerEvents: "none",
+        zIndex: 25,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "scale(1)" : "scale(0.85)",
+        transition: "opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}
+    >
+      {/* Outer Radiating Pulsing Ring */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: "translate(-50%, -50%)",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          border: `1.5px solid ${accentColor}`,
+          animation: visible ? "pointerRingPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite" : "none",
+        }}
+      />
+
+      {/* Center Pinpoint Beacon Dot */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: "translate(-50%, -50%)",
+          width: "7px",
+          height: "7px",
+          borderRadius: "50%",
+          background: accentColor,
+          boxShadow: `0 0 10px ${accentColor}, 0 0 18px ${accentColor}`,
+        }}
+      />
+
+      {/* SVG Angled Leader Line */}
+      <svg
+        style={{
+          position: "absolute",
+          left: isLeft ? -90 : 0,
+          top: isBottom ? 0 : -32,
+          width: "90px",
+          height: "64px",
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+        <path
+          d={
+            isLeft
+              ? isBottom
+                ? "M 90,0 L 68,18 L 46,18"
+                : "M 90,32 L 68,14 L 46,14"
+              : isBottom
+              ? "M 0,0 L 22,18 L 44,18"
+              : "M 0,32 L 22,14 L 44,14"
+          }
+          fill="none"
+          stroke={accentColor}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="90"
+          strokeDashoffset={visible ? 0 : 90}
+          style={{
+            transition: "stroke-dashoffset 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+            filter: `drop-shadow(0 0 4px ${accentColor})`,
+          }}
+        />
+      </svg>
+
+      {/* Floating Glass Annotation Badge */}
+      <div
+        style={{
+          position: "absolute",
+          left: isLeft ? undefined : "44px",
+          right: isLeft ? "44px" : undefined,
+          top: isBottom ? "6px" : "-36px",
+          background: "rgba(6, 20, 38, 0.94)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          border: `1px solid ${accentColor}66`,
+          borderRadius: "10px",
+          padding: "9px 13px",
+          maxWidth: "230px",
+          minWidth: "175px",
+          boxShadow: `0 12px 30px rgba(0, 0, 0, 0.75), 0 0 16px ${accentColor}25`,
+          transform: visible ? "translate3d(0, 0, 0)" : "translate3d(0, 6px, 0)",
+          transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          userSelect: "none",
+        }}
+      >
+        {badgeTag && (
+          <div
+            style={{
+              fontFamily: "Inter, monospace",
+              fontSize: "10px",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              color: accentColor,
+              marginBottom: "3px",
+              textTransform: "uppercase",
+            }}
+          >
+            {badgeTag}
+          </div>
+        )}
+        <div
+          style={{
+            fontFamily: "Syne, sans-serif",
+            fontSize: "13.5px",
+            fontWeight: 700,
+            color: "#ffffff",
+            lineHeight: 1.25,
+          }}
+        >
+          {title}
         </div>
-
-        {/* Geographic bounds */}
-        <div style={{ position: 'absolute', top: 6, left: 8, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>15.0°N</div>
-        <div style={{ position: 'absolute', bottom: 6, left: 8, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>10.0°N</div>
-        <div style={{ position: 'absolute', bottom: 6, right: 8, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>70.0°E</div>
-        <div style={{ position: 'absolute', top: 6, right: 8, fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter, monospace', pointerEvents: 'none' }}>65.0°E</div>
+        <div
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: "11px",
+            color: "rgba(186, 230, 253, 0.85)",
+            lineHeight: 1.45,
+            marginTop: "3px",
+          }}
+        >
+          {description}
+        </div>
       </div>
     </div>
   );
 };
 
+interface EditorialChapterProps {
+  num: string;
+  tagline: string;
+  label: string;
+  description: string;
+  opacity: MotionValue<number>;
+  scale: MotionValue<number>;
+  lineProgress: MotionValue<string>;
+  accentColor?: string;
+}
 
-const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ activeStage }) => {
-  const isMobile = useIsMobile(768);
-  // Stage 1 State
-  const [activeMetric, setActiveMetric] = useState<'SST' | 'SSS' | 'SSH' | 'Currents' | 'Winds'>('SST');
-  const [activeTab, setActiveTab] = useState<'magnitude' | 'direction'>('magnitude');
+const EditorialChapter: React.FC<EditorialChapterProps> = ({
+  num,
+  tagline,
+  label,
+  description,
+  opacity,
+  scale,
+  lineProgress,
+  accentColor = "#38bdf8",
+}) => {
+  return (
+    <motion.div
+      style={{
+        opacity,
+        scale,
+        transformOrigin: "left center",
+        position: "relative",
+        paddingLeft: "22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+      }}
+    >
+      {/* Thin glowing vertical progress line on left edge */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: "2.5px",
+          background: "rgba(255, 255, 255, 0.08)",
+          borderRadius: "2px",
+          overflow: "hidden",
+        }}
+      >
+        <motion.div
+          style={{
+            width: "100%",
+            height: lineProgress,
+            background: `linear-gradient(180deg, ${accentColor} 0%, #0284c7 100%)`,
+            boxShadow: `0 0 10px ${accentColor}`,
+          }}
+        />
+      </div>
 
-  const METRICS = [
-    { id: 'SST' as const, label: 'SST', title: 'Sea Surface Temperature (SST)', icon: ThermometerSun, color: '#ff7882', unit: '°C', val: '29.4°C' },
-    { id: 'SSS' as const, label: 'SSS', title: 'Sea Surface Salinity (SSS)', icon: Droplets, color: '#35b779', unit: ' psu', val: '35.2 psu' },
-    { id: 'SSH' as const, label: 'SSH', title: 'Sea Surface Height (SSH)', icon: Waves, color: '#8bb6d6', unit: 'm', val: '+0.18m' },
-    { id: 'Currents' as const, label: 'Currents', title: 'Surface Currents Magnitude', icon: Navigation, color: '#fde725', unit: ' m/s', val: '1.38 m/s' },
-    { id: 'Winds' as const, label: 'Winds', title: 'Surface Winds Magnitude', icon: Wind, color: '#d4a5a5', unit: ' m/s', val: '6.4 m/s' },
-  ];
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span
+          style={{
+            fontFamily: "Inter, monospace",
+            fontSize: "12px",
+            fontWeight: 700,
+            letterSpacing: "0.14em",
+            color: accentColor,
+          }}
+        >
+          {num}
+        </span>
+        <span
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: "10px",
+            fontWeight: 600,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "rgba(186, 230, 253, 0.55)",
+          }}
+        >
+          {tagline}
+        </span>
+      </div>
 
-  const currentMetricConfig = METRICS.find((m) => m.id === activeMetric) || METRICS[0];
-  const effectiveTab = (activeMetric === 'Currents' || activeMetric === 'Winds') ? activeTab : 'magnitude';
+      <h3
+        style={{
+          fontFamily: "Syne, sans-serif",
+          fontSize: "clamp(1.15rem, 1.8vw, 1.45rem)",
+          fontWeight: 700,
+          color: "#ffffff",
+          letterSpacing: "-0.01em",
+          lineHeight: 1.2,
+          margin: 0,
+        }}
+      >
+        {label}
+      </h3>
+
+      <p
+        style={{
+          fontFamily: "Inter, sans-serif",
+          fontSize: "12.5px",
+          color: "rgba(186, 230, 253, 0.75)",
+          lineHeight: 1.5,
+          margin: 0,
+          maxWidth: "340px",
+        }}
+      >
+        {description}
+      </p>
+    </motion.div>
+  );
+};
+
+export const EditorialChaptersColumn: React.FC<{
+  smoothProgress: MotionValue<number>;
+  isMobile: boolean;
+}> = ({ smoothProgress, isMobile }) => {
+  // Act 01: 0.00 to 0.48
+  const op1 = useTransform(smoothProgress, [0.00, 0.44, 0.48], [1, 1, 0.22]);
+  const sc1 = useTransform(smoothProgress, [0.00, 0.44, 0.48], [1, 1, 0.96]);
+  const line1 = useTransform(smoothProgress, [0.00, 0.48], ["0%", "100%"]);
+
+  // Act 02: 0.48 to 0.76
+  const op2 = useTransform(smoothProgress, [0.44, 0.48, 0.72, 0.76], [0.22, 1, 1, 0.22]);
+  const sc2 = useTransform(smoothProgress, [0.44, 0.48, 0.72, 0.76], [0.96, 1, 1, 0.96]);
+  const line2 = useTransform(smoothProgress, [0.48, 0.76], ["0%", "100%"]);
+
+  // Act 03: 0.76 to 1.00
+  const op3 = useTransform(smoothProgress, [0.72, 0.76, 1.00], [0.22, 1, 1]);
+  const sc3 = useTransform(smoothProgress, [0.72, 0.76, 1.00], [0.96, 1, 1]);
+  const line3 = useTransform(smoothProgress, [0.76, 1.00], ["0%", "100%"]);
 
   return (
     <div
       style={{
-        background: 'linear-gradient(145deg, rgba(16, 33, 54, 0.95), rgba(8, 16, 28, 0.95))',
-        border: '1px solid rgba(139, 182, 214, 0.22)',
-        borderRadius: isMobile ? '20px' : '24px',
-        boxShadow: '0 24px 64px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-        padding: isMobile ? '16px 14px' : '24px',
-        minHeight: activeStage === 1 ? 'auto' : (isMobile ? '350px' : '490px'),
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        position: 'relative',
-        transition: 'min-height 0.3s ease',
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-around",
+        gap: isMobile ? "16px" : "28px",
+        height: "100%",
+        padding: isMobile ? "8px 0" : "18px 0",
       }}
     >
-      {/* ─── STAGE 1: SATELLITE SURFACE INPUTS (Replicating ObservationModal & OceanGlobeView) ─── */}
-      {activeStage === 1 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Top 5 Metric Selection Buttons from OceanGlobeView sidebar */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: isMobile ? '4px' : '6px' }}>
-            {METRICS.map((m) => {
-              const isSel = activeMetric === m.id;
-              const Icon = m.icon;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    setActiveMetric(m.id);
-                    if (m.id !== 'Currents' && m.id !== 'Winds') setActiveTab('magnitude');
-                  }}
-                  style={{
-                    background: isSel ? `${m.color}22` : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${isSel ? m.color : 'rgba(255,255,255,0.1)'}`,
-                    borderRadius: isMobile ? '8px' : '10px',
-                    padding: isMobile ? '6px 2px' : '8px 4px',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: isMobile ? '2px' : '4px',
-                    transition: 'all 0.2s ease',
-                    boxShadow: isSel ? `0 0 14px ${m.color}33` : 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '2px' : '4px' }}>
-                    <Icon size={isMobile ? 11 : 13} color={m.color} />
-                    <span style={{ fontSize: isMobile ? '10px' : '11px', fontWeight: 600, color: isSel ? m.color : 'rgba(255,255,255,0.8)' }}>
-                      {m.label}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: isMobile ? '10px' : '11px', fontWeight: 700, color: '#ffffff' }}>
-                    {m.val}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      <EditorialChapter
+        num="01"
+        tagline="Surface Telemetry"
+        label="Surface Fingerprints"
+        description="Warm underwater water expands, creating tiny bumps on the ocean surface that satellite radars can detect. OceanEmbed collects live satellite data from NASA and European space agencies daily."
+        opacity={op1}
+        scale={sc1}
+        lineProgress={line1}
+        accentColor="#38bdf8"
+      />
 
-          {/* Modal-style Content Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '10px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: currentMetricConfig.color, letterSpacing: '0.4px' }}>
-                {effectiveTab === 'direction' ? currentMetricConfig.title.replace('Magnitude', 'Direction') : currentMetricConfig.title}
-              </h3>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                {effectiveTab === 'magnitude'
-                  ? '14-Day Historical Trend for Arabian Sea: 10°N - 15°N, 65°E - 70°E'
-                  : 'Live Flow Direction & Speed for Arabian Sea: 10°N - 15°N, 65°E - 70°E'}
-              </div>
-            </div>
+      <EditorialChapter
+        num="02"
+        tagline="Depth Physics"
+        label="Underwater Layers"
+        description="Our AI model uses fluid physics laws to calculate how surface heat spreads downward, predicting water temperature across 15 standard depths down to 1,000 meters."
+        opacity={op2}
+        scale={sc2}
+        lineProgress={line2}
+        accentColor="#60a5fa"
+      />
 
-            {/* Magnitude vs Direction Toggle from ObservationModal */}
-            {(activeMetric === 'Currents' || activeMetric === 'Winds') && (
-              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', padding: '3px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <button
-                  onClick={() => setActiveTab('magnitude')}
-                  style={{
-                    background: activeTab === 'magnitude' ? currentMetricConfig.color : 'transparent',
-                    color: activeTab === 'magnitude' ? '#000' : 'rgba(255,255,255,0.6)',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  Magnitude
-                </button>
-                <button
-                  onClick={() => setActiveTab('direction')}
-                  style={{
-                    background: activeTab === 'direction' ? currentMetricConfig.color : 'transparent',
-                    color: activeTab === 'direction' ? '#000' : 'rgba(255,255,255,0.6)',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '4px 10px',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  Direction
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Chart or Vector Field Area */}
-          <div style={{ width: '100%', height: '260px', display: 'flex', flexDirection: 'column' }}>
-            {effectiveTab === 'magnitude' ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={MOCK_SURFACE_TRENDS[activeMetric]} margin={{ top: 12, right: 20, left: -14, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="landingMetricGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={currentMetricConfig.color} stopOpacity={0.4} />
-                      <stop offset="95%" stopColor={currentMetricConfig.color} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                  <XAxis
-                    dataKey="date"
-                    stroke="rgba(255,255,255,0.3)"
-                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    dy={6}
-                  />
-                  <YAxis
-                    stroke="rgba(255,255,255,0.3)"
-                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
-                    tickFormatter={(val) => `${val}${currentMetricConfig.unit}`}
-                    axisLine={false}
-                    tickLine={false}
-                    domain={['auto', 'auto']}
-                    dx={-4}
-                  />
-                  <RechartsTooltip
-                    contentStyle={{ background: 'rgba(10,25,45,0.95)', border: `1px solid ${currentMetricConfig.color}`, borderRadius: '8px', fontSize: '12px' }}
-                    itemStyle={{ color: '#fff' }}
-                    formatter={(value: any) => [`${Number(value).toFixed(2)}${currentMetricConfig.unit}`, 'Observed Value']}
-                    labelStyle={{ color: 'rgba(255,255,255,0.7)', margin: '0 0 4px 0' }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke={currentMetricConfig.color}
-                    strokeWidth={2.5}
-                    fillOpacity={1}
-                    fill="url(#landingMetricGrad)"
-                    activeDot={{ r: 5, fill: currentMetricConfig.color, stroke: '#fff', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <VectorParticleCanvas metric={activeMetric === 'Winds' ? 'Winds' : 'Currents'} />
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ─── STAGE 2: 15 STANDARD DEPTHS (Subsurface 3D Profile from DepthModal.tsx) ─── */}
-      {activeStage === 2 && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#8bb6d6', letterSpacing: '0.4px' }}>
-                3D Underwater Temperature Slices
-              </h3>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-                Estimated water temperatures across 15 standard depths from 0m to 1,000m
-              </div>
-            </div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
-              15 Depth Layers
-            </div>
-          </div>
-
-          {/* 3D Stacked Profile Canvas matching DepthModal.tsx */}
-          <div
-            className="stage2-3d-profile-container"
-            style={{
-              flex: 1,
-              minHeight: '405px',
-              height: '405px',
-              position: 'relative',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              background: 'radial-gradient(ellipse at center, rgba(14, 32, 56, 0.6) 0%, rgba(4, 10, 20, 0.95) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            <style>{`
-              .landing-3d-profile-container {
-                position: relative !important;
-                width: 100% !important;
-                height: 405px !important;
-              }
-              .stage2-3d-profile-container {
-                position: relative !important;
-                width: 100% !important;
-                height: 405px !important;
-              }
-              .landing-3d-profile-container > div:first-child,
-              .landing-3d-profile-container > div:first-child > div,
-              .landing-3d-profile-container canvas,
-              .stage2-3d-profile-container > div:first-child,
-              .stage2-3d-profile-container > div:first-child > div,
-              .stage2-3d-profile-container canvas {
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                display: block !important;
-              }
-            `}</style>
-            <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-              <Canvas
-                camera={{ position: [8.0, 3.8, 8.0], fov: 45 }}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-              >
-                <CanvasResizeSynchronizer />
-                <ambientLight intensity={0.45} />
-                <directionalLight position={[10, 10, 5]} intensity={1.8} />
-                <pointLight position={[-10, -10, -10]} color="#4b0082" intensity={2.5} />
-                <spotLight position={[0, 10, 0]} angle={0.6} penumbra={1} intensity={1.2} />
-                <OrbitControls
-                  makeDefault
-                  target={[-0.2, -0.85, 0]}
-                  enableDamping
-                  dampingFactor={0.05}
-                  autoRotate
-                  autoRotateSpeed={0.7}
-                  minDistance={5}
-                  maxDistance={22}
-                  maxPolarAngle={Math.PI / 2 + 0.25}
-                  minPolarAngle={0.2}
-                />
-                <Suspense fallback={null}>
-                  <Subsurface3DProfileModel />
-                </Suspense>
-              </Canvas>
-            </div>
-
-            {/* Colorbar Legend Overlay matching DepthModal.tsx */}
-            <div
-              style={{
-                position: 'absolute',
-                right: '24px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(0, 0, 0, 0.45)',
-                padding: '14px 10px',
-                borderRadius: '14px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(6px)',
-                pointerEvents: 'none',
-                zIndex: 10,
-              }}
-            >
-              <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>30°C</span>
-              <div
-                style={{
-                  width: '12px',
-                  height: '180px',
-                  background: 'linear-gradient(to bottom, #ffa500, #4b0082)',
-                  borderRadius: '6px',
-                  boxShadow: 'inset 0 0 4px rgba(0,0,0,0.5)',
-                }}
-              />
-              <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '12px', fontWeight: 600 }}>4°C</span>
-              <span style={{ color: '#8bb6d6', fontSize: '11px', marginTop: '4px', letterSpacing: '0.5px', fontWeight: 500 }}>TEMP</span>
-            </div>
-
-            {/* Bottom Info Overlay */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '12px',
-                left: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                pointerEvents: 'none',
-                zIndex: 10,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: '#8bb6d6',
-                  background: 'rgba(0, 0, 0, 0.45)',
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(139, 182, 214, 0.2)',
-                  backdropFilter: 'blur(4px)',
-                  fontWeight: 500,
-                  letterSpacing: '0.3px',
-                }}
-              >
-                15 DEPTH LAYERS • 0m TO 1,000m
-              </div>
-              <div
-                style={{
-                  fontSize: '10.5px',
-                  color: 'rgba(255, 255, 255, 0.5)',
-                  background: 'rgba(0, 0, 0, 0.35)',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  backdropFilter: 'blur(4px)',
-                }}
-              >
-                ↻ Drag to orbit
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── STAGE 3: 3D COORDINATE QUERY (Thermocline Topographic Surface from DepthModal.tsx) ─── */}
-      {activeStage === 3 && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Header */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            paddingBottom: '14px',
-            flexWrap: 'wrap',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  Underwater Temperature Map
-                </h3>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#38bdf8',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.28)',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  letterSpacing: '0.3px'
-                }}>
-                  100m Depth Layer
-                </span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'rgba(186, 230, 253, 0.65)', lineHeight: 1.4 }}>
-                Interactive 3D thermal surface &bull; Arabian Sea: 10°N–15°N, 65°E–70°E
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'center' }}>
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '12px',
-                color: '#bae6fd',
-                background: 'rgba(8, 27, 51, 0.8)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontWeight: 500,
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
-                <span>Point Query: <strong style={{ color: '#ffffff', fontWeight: 600 }}>12.5°N, 67.5°E</strong></span>
-              </div>
-            </div>
-          </div>
-
-          {/* 3D Topographic Surface Canvas */}
-          <div
-            className="landing-3d-profile-container"
-            style={{
-              flex: 1,
-              minHeight: '405px',
-              height: '405px',
-              position: 'relative',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              background: 'radial-gradient(ellipse at center, rgba(14, 32, 56, 0.6) 0%, rgba(4, 10, 20, 0.95) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-            }}
-          >
-            <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-              <Canvas
-                camera={{ position: [5.0, 3.5, 5.0], fov: 44 }}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-              >
-                <CanvasResizeSynchronizer />
-                <ambientLight intensity={0.55} />
-                <directionalLight position={[8, 10, 5]} intensity={1.8} />
-                <pointLight position={[-8, -8, -8]} color="#440154" intensity={2} />
-                <pointLight position={[0, -6, -4]} color="#312e81" intensity={1.8} />
-                <spotLight position={[0, 8, 0]} angle={0.6} penumbra={1} intensity={1.2} />
-                <OrbitControls
-                  makeDefault
-                  target={[-0.2, -0.65, 0]}
-                  enableDamping
-                  dampingFactor={0.05}
-                  autoRotate
-                  autoRotateSpeed={0.8}
-                  minDistance={3.5}
-                  maxDistance={14}
-                  maxPolarAngle={Math.PI / 2 + 0.2}
-                  minPolarAngle={0.15}
-                />
-                <Suspense fallback={null}>
-                  <ThermoclineTopographicScene />
-                </Suspense>
-              </Canvas>
-            </div>
-
-            {/* Viridis Colorbar Legend Overlay */}
-            <div style={{
-              position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-              background: 'rgba(0, 0, 0, 0.4)', padding: '12px 8px', borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(4px)', pointerEvents: 'none', zIndex: 10
-            }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 500 }}>{Math.round(THERMOCLINE_GRID_DATA.maxTemp)}°C</span>
-              <div style={{
-                width: '12px', height: '160px',
-                background: 'linear-gradient(to bottom, #fde725, #5ec962, #21918c, #3b528b, #440154)',
-                borderRadius: '6px', boxShadow: 'inset 0 0 4px rgba(0,0,0,0.5)'
-              }} />
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '11px', fontWeight: 500 }}>{Math.round(THERMOCLINE_GRID_DATA.minTemp)}°C</span>
-              <span style={{ color: '#8bb6d6', fontSize: '10px', marginTop: '2px', letterSpacing: '0.5px', fontWeight: 500 }}>TEMP</span>
-            </div>
-
-            {/* Left Topographic Surface Info Overlay (matching DepthModal style) */}
-            <div style={{
-              position: 'absolute', left: '16px', bottom: '14px',
-              background: 'rgba(10, 20, 36, 0.75)', padding: '10px 14px', borderRadius: '8px',
-              border: '1px solid rgba(56, 189, 248, 0.2)', backdropFilter: 'blur(6px)', pointerEvents: 'none', zIndex: 10
-            }}>
-              <div style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 600, letterSpacing: '0.5px' }}>
-                UNDERWATER LAYER (100m)
-              </div>
-              <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.65)', marginTop: '3px', display: 'flex', gap: '12px' }}>
-                <span>Average: {THERMOCLINE_GRID_DATA.meanTemp.toFixed(1)}°C</span>
-                <span style={{ color: '#00ff88' }}>Point: {THERMOCLINE_GRID_DATA.centerT.toFixed(2)}°C</span>
-              </div>
-            </div>
-
-            {/* Top Hint Badge */}
-            <div style={{
-              position: 'absolute', top: '14px', left: '16px',
-              fontSize: '10px', color: 'rgba(255, 255, 255, 0.6)',
-              background: 'rgba(0, 0, 0, 0.45)', padding: '4px 10px', borderRadius: '6px',
-              border: '1px solid rgba(255, 255, 255, 0.08)', backdropFilter: 'blur(4px)',
-              pointerEvents: 'none', zIndex: 10
-            }}>
-              ↻ Drag to orbit 3D relief
-            </div>
-          </div>
-        </div>
-      )}
+      <EditorialChapter
+        num="03"
+        tagline="Volumetric Model"
+        label="Interactive 3D Map"
+        description="A continuous volumetric thermal surface revealing subsurface eddies, heat cores, and cyclonic upwelling invisible to flat surface observation."
+        opacity={op3}
+        scale={sc3}
+        lineProgress={line3}
+        accentColor="#a78bfa"
+      />
     </div>
   );
+};
+
+const ACT_CONFIGS = [
+  // Slide 0: SST
+  {
+    category: "Surface Telemetry",
+    title: "Sea Surface Temperature (SST)",
+    subtitle: "14-day ocean surface temperature trends across the Arabian Sea",
+    metricValue: "29.4°C",
+    accentColor: "#ff7882",
+  },
+  // Slide 1: SSS
+  {
+    category: "Surface Telemetry",
+    title: "Sea Surface Salinity (SSS)",
+    subtitle: "Salt concentration levels indicating freshwater barrier layers",
+    metricValue: "35.2 psu",
+    accentColor: "#35b779",
+  },
+  // Slide 2: SSH
+  {
+    category: "Surface Telemetry",
+    title: "Sea Surface Height (SSH)",
+    subtitle: "Sea level elevation changes caused by ocean warming expansion",
+    metricValue: "+0.18 m",
+    accentColor: "#8bb6d6",
+  },
+  // Slide 3: Currents
+  {
+    category: "Surface Telemetry",
+    title: "Ocean Currents & Circulation",
+    subtitle: "Real-time flow speeds and rotating warm-water eddies",
+    metricValue: "1.38 m/s",
+    accentColor: "#fde725",
+  },
+  // Slide 4: Winds
+  {
+    category: "Surface Telemetry",
+    title: "Monsoon Winds & Airflow",
+    subtitle: "Seasonal wind vectors driving surface ocean circulation",
+    metricValue: "6.4 m/s",
+    accentColor: "#d4a5a5",
+  },
+  // Act 02: 15 Depths
+  {
+    category: "Depth Layers",
+    title: "Underwater Temperature Layers",
+    subtitle: "Water temperature measured across 15 depths down to 1,000m",
+    metricValue: "15 Depths (0–1000m)",
+    accentColor: "#38bdf8",
+  },
+  // Act 03: 3D Volumetric Terrain
+  {
+    category: "3D Heat Map",
+    title: "3D Ocean Heat Map",
+    subtitle: "Interactive 3D model revealing underwater heat cores and eddies",
+    metricValue: "24.9°C Core Peak",
+    accentColor: "#a78bfa",
+  },
+];
+
+// ─── 100% SCROLL-SCRUBBED ACT 01 TELEMETRY GRAPH COMPONENTS ──────────────────
+
+interface ScrollScrubbedCalloutPointerProps {
+  x: number; // percentage in container (0 - 100)
+  y: number; // percentage in container (0 - 100)
+  title: string;
+  badgeTag?: string;
+  description: string;
+  accentColor: string;
+  align?: "left" | "right";
+  verticalAlign?: "top" | "bottom";
+  progress: MotionValue<number>;
+  slideIndex: number;
+}
+
+const ScrollScrubbedCalloutPointer: React.FC<ScrollScrubbedCalloutPointerProps> = ({
+  x,
+  y,
+  title,
+  badgeTag,
+  description,
+  accentColor,
+  align = "right",
+  verticalAlign = "top",
+  progress,
+  slideIndex,
+}) => {
+  const isLeft = align === "left";
+  const isBottom = verticalAlign === "bottom";
+
+  // Phase 3 (u: 0.50 -> 0.82): Smoothly interpolate badge, ring, and leader line as curve passes anomaly peak
+  const calloutOpacity = useTransform(progress, (p) => {
+    if (slideIndex === 3) {
+      if (p < 0.295) return 0;
+      if (p < 0.312) return (p - 0.295) / 0.017;
+      return 1;
+    }
+    if (slideIndex === 4) {
+      if (p < 0.388) return 0;
+      if (p < 0.405) return (p - 0.388) / 0.017;
+      return 1;
+    }
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u < 0.50) return 0;
+    if (u < 0.65) return (u - 0.50) / 0.15;
+    return 1;
+  });
+
+  const calloutScale = useTransform(progress, (p) => {
+    if (slideIndex === 3) {
+      if (p < 0.295) return 0.92;
+      if (p < 0.312) return 0.92 + 0.08 * ((p - 0.295) / 0.017);
+      return 1;
+    }
+    if (slideIndex === 4) {
+      if (p < 0.388) return 0.92;
+      if (p < 0.405) return 0.92 + 0.08 * ((p - 0.388) / 0.017);
+      return 1;
+    }
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u < 0.50) return 0.92;
+    if (u < 0.65) return 0.92 + 0.08 * ((u - 0.50) / 0.15);
+    return 1;
+  });
+
+  const calloutTranslateY = useTransform(progress, (p) => {
+    if (slideIndex === 3) {
+      if (p < 0.295) return 8;
+      if (p < 0.312) return 8 * (1 - (p - 0.295) / 0.017);
+      return 0;
+    }
+    if (slideIndex === 4) {
+      if (p < 0.388) return 8;
+      if (p < 0.405) return 8 * (1 - (p - 0.388) / 0.017);
+      return 0;
+    }
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u < 0.50) return 8;
+    if (u < 0.65) return 8 * (1 - (u - 0.50) / 0.15);
+    return 0;
+  });
+
+  const leaderDashOffset = useTransform(progress, (p) => {
+    if (slideIndex === 3) {
+      if (p < 0.295) return 90;
+      if (p < 0.312) return 90 * (1 - (p - 0.295) / 0.017);
+      return 0;
+    }
+    if (slideIndex === 4) {
+      if (p < 0.388) return 90;
+      if (p < 0.405) return 90 * (1 - (p - 0.388) / 0.017);
+      return 0;
+    }
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u < 0.50) return 90;
+    if (u < 0.65) return 90 * (1 - (u - 0.50) / 0.15);
+    return 0;
+  });
+
+  const leaderPathD = isLeft
+    ? isBottom
+      ? "M 90,0 L 68,18 L 46,18"
+      : "M 90,32 L 68,14 L 46,14"
+    : isBottom
+    ? "M 0,0 L 22,18 L 44,18"
+    : "M 0,32 L 22,14 L 44,14";
+
+  return (
+    <motion.div
+      style={{
+        position: "absolute",
+        left: `${x}%`,
+        top: `${y}%`,
+        pointerEvents: "none",
+        zIndex: 25,
+        opacity: calloutOpacity,
+        scale: calloutScale,
+        y: calloutTranslateY,
+      }}
+    >
+      {/* Outer Radiating Target Ring */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: "translate(-50%, -50%)",
+          width: "24px",
+          height: "24px",
+          borderRadius: "50%",
+          border: `1.5px solid ${accentColor}`,
+          boxShadow: `0 0 10px ${accentColor}55`,
+          animation: "pointerRingPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite",
+        }}
+      />
+
+      {/* Center Pinpoint Beacon Dot */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          transform: "translate(-50%, -50%)",
+          width: "7px",
+          height: "7px",
+          borderRadius: "50%",
+          background: accentColor,
+          boxShadow: `0 0 10px ${accentColor}, 0 0 18px ${accentColor}`,
+        }}
+      />
+
+      {/* SVG Angled Leader Line (Scroll-Scrubbed Dash Offset) */}
+      <svg
+        style={{
+          position: "absolute",
+          left: isLeft ? -90 : 0,
+          top: isBottom ? 0 : -32,
+          width: "90px",
+          height: "64px",
+          overflow: "visible",
+          pointerEvents: "none",
+        }}
+      >
+        <motion.path
+          d={leaderPathD}
+          fill="none"
+          stroke={accentColor}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray="90"
+          style={{
+            strokeDashoffset: leaderDashOffset,
+            filter: `drop-shadow(0 0 4px ${accentColor})`,
+          }}
+        />
+      </svg>
+
+      {/* Floating Glass Annotation Badge */}
+      <div
+        style={{
+          position: "absolute",
+          left: isLeft ? undefined : "44px",
+          right: isLeft ? "44px" : undefined,
+          top: isBottom ? "6px" : "-36px",
+          background: "rgba(6, 20, 38, 0.94)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          border: `1px solid ${accentColor}66`,
+          borderRadius: "10px",
+          padding: "9px 13px",
+          maxWidth: "230px",
+          minWidth: "175px",
+          boxShadow: `0 12px 30px rgba(0, 0, 0, 0.75), 0 0 16px ${accentColor}25`,
+          userSelect: "none",
+        }}
+      >
+        {badgeTag && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "2px 7px",
+              borderRadius: "4px",
+              background: `${accentColor}18`,
+              border: `1px solid ${accentColor}44`,
+              color: accentColor,
+              fontSize: "9px",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              fontFamily: "Inter, monospace",
+              marginBottom: "5px",
+            }}
+          >
+            <span
+              style={{
+                width: "4px",
+                height: "4px",
+                borderRadius: "50%",
+                background: accentColor,
+              }}
+            />
+            {badgeTag}
+          </div>
+        )}
+        <div
+          style={{
+            fontFamily: "Syne, sans-serif",
+            fontSize: "12px",
+            fontWeight: 700,
+            color: "#ffffff",
+            lineHeight: 1.3,
+            marginBottom: "2px",
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: "10.5px",
+            color: "rgba(186, 230, 253, 0.75)",
+            lineHeight: 1.4,
+          }}
+        >
+          {description}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+interface ScrollScrubbedLineChartSlideProps {
+  progress: MotionValue<number>;
+  slideIndex: number;
+  data: { date: string; value: number }[];
+  yDomain: [number, number];
+  yTicks: number[];
+  yFormatter: (val: number) => string;
+  accentColor: string;
+  gradientId: string;
+  clipId: string;
+  callout: {
+    x: number;
+    y: number;
+    title: string;
+    badgeTag: string;
+    description: string;
+    align?: "left" | "right";
+    verticalAlign?: "top" | "bottom";
+  };
+  isMobile: boolean;
+}
+
+const ScrollScrubbedLineChartSlide: React.FC<ScrollScrubbedLineChartSlideProps> = ({
+  progress,
+  slideIndex,
+  data,
+  yDomain,
+  yTicks,
+  yFormatter,
+  accentColor,
+  gradientId,
+  clipId,
+  callout,
+  isMobile,
+}) => {
+  const X0 = 56;
+  const X1 = 676;
+  const Y0 = 22;
+  const Y1 = 280;
+  const W = X1 - X0;
+  const H = Y1 - Y0;
+
+  const [minY, maxY] = yDomain;
+
+  const points = useMemo(() => {
+    return data.map((d, i) => {
+      const x = X0 + (i / (data.length - 1)) * W;
+      const y = Y1 - ((d.value - minY) / (maxY - minY)) * H;
+      return { x, y, date: d.date, value: d.value };
+    });
+  }, [data, minY, maxY, W, H, X0, Y1]);
+
+  const curvePathD = useMemo(() => {
+    if (points.length < 2) return "";
+    let d = `M ${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = i > 0 ? points[i - 1] : points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = i < points.length - 2 ? points[i + 2] : p2;
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+    }
+    return d;
+  }, [points]);
+
+  const areaPathD = useMemo(() => {
+    if (points.length < 2) return "";
+    const first = points[0];
+    const last = points[points.length - 1];
+    return `${curvePathD} L ${last.x.toFixed(2)},${Y1} L ${first.x.toFixed(2)},${Y1} Z`;
+  }, [curvePathD, points, Y1]);
+
+  // Phase 1 (u: 0.00 -> 0.18): Axes & Grid Smooth Fade-In (opacity 0 -> 1, translateY 16px -> 0px)
+  // Phase 4 (u: 0.82 -> 1.00): Smooth Fade-Out (opacity 1 -> 0, translateY 0px -> -12px, pointerEvents 'none' < 0.05)
+  const slideOpacity = useTransform(progress, (p) => {
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u <= 0) return 0;
+    if (u < 0.18) return u / 0.18;
+    if (u <= 0.82) return 1;
+    if (u < 1.00) return 1 - (u - 0.82) / 0.18;
+    return 0;
+  });
+
+  const slideTranslateY = useTransform(progress, (p) => {
+    const u = (p - slideIndex * 0.096) / 0.096;
+    if (u <= 0) return 16;
+    if (u < 0.18) return 16 * (1 - u / 0.18);
+    if (u <= 0.82) return 0;
+    if (u < 1.00) return -12 * ((u - 0.82) / 0.18);
+    return -12;
+  });
+
+  const pointerEvents = useTransform(slideOpacity, (op) => (op < 0.05 ? "none" : "auto"));
+
+  // Phase 2 (u: 0.18 -> 0.62): Gradual Scroll-Scrubbed Graph Drawing
+  const drawProgress = useTransform(progress, (p) => {
+    const u = (p - slideIndex * 0.096) / 0.096;
+    return Math.min(1, Math.max(0, (u - 0.18) / 0.44));
+  });
+
+  const strokeDashoffset = useTransform(drawProgress, (dp) => 1 - dp);
+  const clipWidth = useTransform(drawProgress, (dp) => `${dp * 100}%`);
+
+  return (
+    <motion.div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        padding: isMobile ? "8px 10px 4px" : "12px 16px 6px",
+        boxSizing: "border-box",
+        opacity: slideOpacity,
+        y: slideTranslateY,
+        pointerEvents,
+      }}
+    >
+      <div style={{ flex: 1, minHeight: 0, width: "100%", height: "100%", position: "relative" }}>
+        <svg
+          viewBox="0 0 700 320"
+          preserveAspectRatio="none"
+          style={{ width: "100%", height: "100%", display: "block", overflow: "visible" }}
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={accentColor} stopOpacity={0.4} />
+              <stop offset="95%" stopColor={accentColor} stopOpacity={0.0} />
+            </linearGradient>
+            <clipPath id={clipId}>
+              <motion.rect
+                x="0"
+                y="0"
+                width={clipWidth}
+                height="100%"
+                style={{ width: clipWidth }}
+              />
+            </clipPath>
+          </defs>
+
+          {/* Gridlines & Y-Axis Labels */}
+          {yTicks.map((tick) => {
+            const yTick = Y1 - ((tick - minY) / (maxY - minY)) * H;
+            return (
+              <g key={tick}>
+                <line
+                  x1={X0}
+                  y1={yTick}
+                  x2={X1}
+                  y2={yTick}
+                  stroke="rgba(255, 255, 255, 0.06)"
+                  strokeDasharray="3 3"
+                />
+                <text
+                  x={X0 - 10}
+                  y={yTick + 3.5}
+                  fill="rgba(255, 255, 255, 0.55)"
+                  fontSize="10"
+                  fontFamily="Inter, monospace"
+                  textAnchor="end"
+                >
+                  {yFormatter(tick)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* X-Axis Baseline & Date Labels */}
+          <line
+            x1={X0}
+            y1={Y1}
+            x2={X1}
+            y2={Y1}
+            stroke="rgba(255, 255, 255, 0.12)"
+          />
+          {points.map((pt) => (
+            <text
+              key={pt.date}
+              x={pt.x}
+              y={Y1 + 18}
+              fill="rgba(255, 255, 255, 0.55)"
+              fontSize="10"
+              fontFamily="Inter, sans-serif"
+              textAnchor="middle"
+            >
+              {pt.date}
+            </text>
+          ))}
+
+          {/* Scroll-Scrubbed Area Fill (clipped left-to-right) */}
+          <path
+            d={areaPathD}
+            fill={`url(#${gradientId})`}
+            clipPath={`url(#${clipId})`}
+          />
+
+          {/* Scroll-Scrubbed Line Path (strokeDashoffset scrubbed) */}
+          <motion.path
+            d={curvePathD}
+            fill="none"
+            stroke={accentColor}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength={1}
+            strokeDasharray="1"
+            strokeDashoffset={strokeDashoffset}
+            style={{ strokeDashoffset }}
+          />
+        </svg>
+
+        {/* Phase 3: Scroll-Scrubbed Callout Pointer */}
+        <ScrollScrubbedCalloutPointer
+          x={callout.x}
+          y={callout.y}
+          title={callout.title}
+          badgeTag={callout.badgeTag}
+          description={callout.description}
+          accentColor={accentColor}
+          align={callout.align}
+          verticalAlign={callout.verticalAlign}
+          progress={progress}
+          slideIndex={slideIndex}
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+interface ScrollScrubbedVectorFieldSlideProps {
+  progress: MotionValue<number>;
+  slideIndex: number;
+  metric: "Currents" | "Winds";
+  accentColor: string;
+  clipId?: string;
+  callout: {
+    x: number;
+    y: number;
+    title: string;
+    badgeTag: string;
+    description: string;
+    align?: "left" | "right";
+    verticalAlign?: "top" | "bottom";
+  };
+  isMobile: boolean;
+}
+
+const ScrollScrubbedVectorFieldSlide: React.FC<ScrollScrubbedVectorFieldSlideProps> = ({
+  progress,
+  slideIndex,
+  metric,
+  accentColor: propAccentColor,
+  callout,
+  isMobile,
+}) => {
+  const isCurrents = metric === "Currents";
+  const accentColor = propAccentColor || (isCurrents ? "#fde725" : "#d4a5a5");
+
+  // Phase 1: Container & Grid Fade In
+  // Phase 4: Container & Slide Dissolve
+  const slideOpacity = useTransform(progress, (p) => {
+    if (isCurrents) {
+      if (p <= 0.272) return 0;
+      if (p < 0.292) return (p - 0.272) / 0.020;
+      if (p <= 0.370) return 1;
+      if (p < 0.388) return 1 - (p - 0.370) / 0.018;
+      return 0;
+    }
+    if (p <= 0.370) return 0;
+    if (p < 0.390) return (p - 0.370) / 0.020;
+    if (p <= 0.472) return 1;
+    if (p < 0.485) return 1 - (p - 0.472) / 0.013;
+    return 0;
+  });
+
+  const slideTranslateY = useTransform(progress, (p) => {
+    if (isCurrents) {
+      if (p <= 0.272) return 16;
+      if (p < 0.292) return 16 * (1 - (p - 0.272) / 0.020);
+      if (p <= 0.370) return 0;
+      if (p < 0.388) return -12 * ((p - 0.370) / 0.018);
+      return -12;
+    }
+    if (p <= 0.370) return 16;
+    if (p < 0.390) return 16 * (1 - (p - 0.370) / 0.020);
+    if (p <= 0.472) return 0;
+    if (p < 0.485) return -12 * ((p - 0.472) / 0.013);
+    return -12;
+  });
+
+  const pointerEvents = useTransform(slideOpacity, (op) => (op < 0.05 ? "none" : "auto"));
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Hybrid Scroll-Ignited Particle Stream Canvas Engine
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let width = container.clientWidth || 700;
+    let height = container.clientHeight || 320;
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    const updateCanvasSize = () => {
+      if (!container || !canvas) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w > 0 && h > 0) {
+        width = w;
+        height = h;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+      }
+    };
+
+    updateCanvasSize();
+    const ro = new ResizeObserver(updateCanvasSize);
+    ro.observe(container);
+
+    // Particle Counts: 140 for Slide 4 (Currents), 125 for Slide 5 (Winds)
+    const totalParticles = isCurrents ? 140 : 125;
+
+    interface Particle {
+      x: number;
+      y: number;
+      distFromCore: number;
+      speed: number;
+      maxTrailLen: number;
+      life: number;
+      age: number;
+      phaseOffset: number;
+      history: { x: number; y: number }[];
+    }
+
+    const initCx = 0.58 * width;
+    const initCy = 0.52 * height;
+
+    const particles: Particle[] = Array.from({ length: totalParticles }, (_, i) => {
+      if (isCurrents) {
+        // Seed 140 particles organically across Arabian Sea bounding box with eddy density
+        let px = 0;
+        let py = 0;
+        if (i < 95) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = 18 + Math.sqrt(Math.random()) * 165;
+          px = initCx + Math.cos(angle) * r;
+          py = initCy + Math.sin(angle) * r * 0.88;
+        } else {
+          px = Math.random() * width;
+          py = Math.random() * height;
+        }
+        const dist = Math.hypot(px - initCx, py - initCy);
+        return {
+          x: px,
+          y: py,
+          distFromCore: dist,
+          speed: 0.95 + Math.random() * 0.35,
+          maxTrailLen: 14,
+          life: 400 + Math.random() * 200,
+          age: Math.floor(Math.random() * 300),
+          phaseOffset: Math.random() * Math.PI * 2,
+          history: [{ x: px, y: py }],
+        };
+      } else {
+        // Seed 125 wind particles across canvas with calm laminar distribution
+        const px = Math.random() * (width + 60) - 30;
+        const py = Math.random() * (height + 60) - 30;
+        const distFromBL = (px / width) * 0.6 + ((height - py) / height) * 0.4;
+        return {
+          x: px,
+          y: py,
+          distFromCore: distFromBL,
+          speed: 1.6 + ((i % 7) / 7) * 0.6, // Calm, smooth, laminar velocity (1.6 - 2.2 px/frame)
+          maxTrailLen: 22,
+          life: 99999,
+          age: 0,
+          phaseOffset: 0,
+          history: [{ x: px, y: py }],
+        };
+      }
+    });
+
+    // Sort particles so ignition radiates progressively from core outward (Currents) or across wind corridor (Winds)
+    particles.sort((a, b) => a.distFromCore - b.distFromCore);
+
+    // Physics step function - purely continuous time-based simulation (100% decoupled from scroll)
+    const stepPhysics = (dt: number) => {
+      if (isCurrents) {
+        const cx = 0.58 * width;
+        const cy = 0.52 * height;
+        const rEddy = Math.min(width, height) * 0.28;
+
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+
+          // Vector Field Math (Anticyclonic Gyre / Eddy)
+          const dx = pt.x - cx;
+          const dy = pt.y - cy;
+          const dist = Math.hypot(dx, dy);
+          const rNorm = dist / Math.max(rEddy, 1);
+
+          // Smooth tangential swirl around (cx, cy) with peak speed near eddy ring
+          const eddyFactor = rNorm * Math.exp(-0.5 * rNorm * rNorm) * 2.7;
+          const invDist = 1 / (dist + 0.001);
+          // Clockwise tangential swirl: (-dy, dx)
+          const tanVx = -dy * invDist * eddyFactor * 2.2;
+          const tanVy = dx * invDist * eddyFactor * 2.2;
+
+          // Gentle inward downwelling pull towards eddy core
+          const inwardVx = -dx * invDist * 0.12 * eddyFactor;
+          const inwardVy = -dy * invDist * 0.12 * eddyFactor;
+
+          // Gentle eastward coastal drift
+          const driftVx = 0.38 + 0.12 * Math.sin((pt.y / height) * Math.PI);
+          const driftVy = 0.08 * Math.cos((pt.x / width) * 2 * Math.PI);
+
+          const vx = (tanVx + inwardVx + driftVx) * pt.speed;
+          const vy = (tanVy + inwardVy + driftVy) * pt.speed;
+
+          // Fixed history length of 14 points (steady trail length, zero scroll dependence)
+          pt.history.push({ x: pt.x, y: pt.y });
+          if (pt.history.length > 14) {
+            pt.history.shift();
+          }
+
+          pt.x += vx * dt;
+          pt.y += vy * dt;
+          pt.age += dt;
+
+          // Boundary wrap / respawn
+          if (pt.x > width + 35) {
+            pt.x = -15;
+            pt.y = cy + (Math.random() - 0.5) * height * 0.8;
+            pt.history = [{ x: pt.x, y: pt.y }];
+          } else if (pt.x < -35) {
+            pt.x = width + 15;
+            pt.y = cy + (Math.random() - 0.5) * height * 0.8;
+            pt.history = [{ x: pt.x, y: pt.y }];
+          }
+          if (pt.y > height + 35) {
+            pt.y = -15;
+            pt.x = Math.random() * width;
+            pt.history = [{ x: pt.x, y: pt.y }];
+          } else if (pt.y < -35) {
+            pt.y = height + 15;
+            pt.x = Math.random() * width;
+            pt.history = [{ x: pt.x, y: pt.y }];
+          }
+          if (pt.age > pt.life) {
+            pt.age = 0;
+            const angle = Math.random() * Math.PI * 2;
+            const r = 20 + Math.sqrt(Math.random()) * 160;
+            pt.x = cx + Math.cos(angle) * r;
+            pt.y = cy + Math.sin(angle) * r * 0.88;
+            pt.history = [{ x: pt.x, y: pt.y }];
+          }
+        }
+      } else {
+        const baseAngle = -32 * (Math.PI / 180); // SW-to-NE Monsoon Jet Stream (~ -32deg)
+
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+
+          // Coherent, laminar spatial wave (particles in the same area flow harmoniously)
+          const wave = 0.10 * Math.sin(pt.x * 0.008 + pt.y * 0.006);
+          const angle = baseAngle + wave;
+          const vx = Math.cos(angle) * pt.speed;
+          const vy = Math.sin(angle) * pt.speed;
+
+          // Fixed history length of 20 points (steady trail length, zero scroll dependence)
+          pt.history.push({ x: pt.x, y: pt.y });
+          if (pt.history.length > 20) {
+            pt.history.shift();
+          }
+
+          pt.x += vx * dt;
+          pt.y += vy * dt;
+
+          // Seamless boundary respawn along bottom/left boundary as particles exit top/right
+          if (pt.x > width + 30 || pt.y < -30) {
+            if (Math.random() < 0.5) {
+              pt.x = -20;
+              pt.y = Math.random() * (height + 20);
+            } else {
+              pt.x = Math.random() * (width + 20);
+              pt.y = height + 20;
+            }
+            pt.history = [{ x: pt.x, y: pt.y }];
+          }
+        }
+      }
+    };
+
+    // Pre-warm particle stream history so trails are immediately smooth and complete on reveal
+    for (let warm = 0; warm < 22; warm++) {
+      stepPhysics(1.0);
+    }
+
+    let isRunning = false;
+    let rafId: number | null = null;
+    let lastTime = performance.now();
+
+    const calcLifecycle = (p: number) => {
+      if (isCurrents) {
+        let op = 0;
+        if (p > 0.272 && p < 0.292) op = (p - 0.272) / 0.020;
+        else if (p >= 0.292 && p <= 0.370) op = 1;
+        else if (p > 0.370 && p < 0.388) op = 1 - (p - 0.370) / 0.018;
+
+        const dp = clamp((p - 0.272) / 0.040, 0, 1);
+        return { opacity: op, drawProgress: dp };
+      }
+
+      let op = 0;
+      if (p > 0.370 && p < 0.390) op = (p - 0.370) / 0.020;
+      else if (p >= 0.390 && p <= 0.472) op = 1;
+      else if (p > 0.472 && p < 0.485) op = 1 - (p - 0.472) / 0.013;
+
+      const dp = clamp((p - 0.370) / 0.040, 0, 1);
+      return { opacity: op, drawProgress: dp };
+    };
+
+    const render = () => {
+      if (!isRunning) return;
+
+      const p = progress.get();
+      const { opacity, drawProgress } = calcLifecycle(p);
+
+      // Only run the canvas requestAnimationFrame loop when the slide's opacity is > 0.02
+      if (opacity <= 0.02) {
+        isRunning = false;
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        return;
+      }
+
+      // Delta time normalized to 60 FPS (16.667ms per step)
+      const now = performance.now();
+      let dt = (now - lastTime) / 16.667;
+      lastTime = now;
+      if (dt > 2.0 || dt < 0.1) dt = 1.0;
+
+      // Advance physics continuously based on clock time (completely independent of scroll)
+      stepPhysics(dt);
+
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      if (isCurrents) {
+        // Slide 4: Ocean Currents & Circulation (Swirling Mesoscale Eddy)
+        const cx = 0.58 * width;
+        const cy = 0.52 * height;
+        const rEddy = Math.min(width, height) * 0.28;
+
+        // Add 3–4 very faint, dashed concentric contour rings around the eddy core
+        if (drawProgress > 0.01) {
+          ctx.save();
+          ctx.setLineDash([4, 5]);
+          const contourRadii = [rEddy * 0.48, rEddy * 0.98, rEddy * 1.58, rEddy * 2.22];
+          contourRadii.forEach((r, idx) => {
+            ctx.strokeStyle = `rgba(253, 231, 37, ${(0.06 + idx * 0.025) * drawProgress * opacity})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, r, r * 0.86, 0.08, 0, Math.PI * 2);
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+
+        // Render each particle with smooth individual alpha fade-in (NO POPPING!)
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+
+          // Staggered progressive onset: eddy core particles fade in first, spreading outward
+          const onset = (i / totalParticles) * 0.65;
+          const particleFade = clamp((drawProgress - onset) / 0.35, 0, 1);
+          if (particleFade <= 0.003) continue;
+
+          const pts = pt.history;
+          if (pts.length >= 2) {
+            for (let j = 0; j < pts.length - 1; j++) {
+              const t = (j + 1) / pts.length;
+              const alpha = Math.pow(t, 2) * 0.85 * particleFade * opacity;
+              const w = 0.6 + t * 1.4;
+              ctx.strokeStyle = `rgba(253, 231, 37, ${alpha})`;
+              ctx.lineWidth = w;
+              ctx.lineCap = "round";
+              ctx.beginPath();
+              ctx.moveTo(pts[j].x, pts[j].y);
+              ctx.lineTo(pts[j + 1].x, pts[j + 1].y);
+              ctx.stroke();
+            }
+          }
+
+          // Glowing golden head (#fde725, 1.8px radius with soft glow, smoothly faded)
+          const headAlpha = 0.95 * particleFade * opacity;
+          if (headAlpha > 0.01) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(253, 231, 37, ${headAlpha})`;
+            ctx.shadowColor = "#fde725";
+            ctx.shadowBlur = 6 * particleFade;
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      } else {
+        // Slide 5: Monsoon Winds & Airflow (Smooth Laminar Streaks)
+        // Render each wind streak with smooth individual alpha fade-in (NO POPPING!)
+        for (let i = 0; i < totalParticles; i++) {
+          const pt = particles[i];
+
+          // Staggered progressive onset across wind corridor
+          const onset = (i / totalParticles) * 0.65;
+          const particleFade = clamp((drawProgress - onset) / 0.35, 0, 1);
+          if (particleFade <= 0.003) continue;
+
+          const pts = pt.history;
+          if (pts.length >= 2) {
+            for (let j = 0; j < pts.length - 1; j++) {
+              const t = (j + 1) / pts.length;
+              const alpha = Math.pow(t, 2) * 0.70 * particleFade * opacity;
+              const w = 0.7 + t * 1.2;
+              ctx.strokeStyle = `rgba(212, 165, 165, ${alpha})`;
+              ctx.lineWidth = w;
+              ctx.lineCap = "round";
+              ctx.beginPath();
+              ctx.moveTo(pts[j].x, pts[j].y);
+              ctx.lineTo(pts[j + 1].x, pts[j + 1].y);
+              ctx.stroke();
+            }
+          }
+
+          // Soft leading tip with subtle #d4a5a5 glow, smoothly faded
+          const tipAlpha = 0.95 * particleFade * opacity;
+          if (tipAlpha > 0.01) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 1.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(245, 230, 230, ${tipAlpha})`;
+            ctx.shadowColor = "#d4a5a5";
+            ctx.shadowBlur = 4 * particleFade;
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+
+      ctx.restore();
+
+      // Continue animation loop while slide is visible
+      rafId = requestAnimationFrame(render);
+    };
+
+    const startAnimation = () => {
+      if (!isRunning) {
+        isRunning = true;
+        lastTime = performance.now();
+        rafId = requestAnimationFrame(render);
+      }
+    };
+
+    const stopAnimation = () => {
+      isRunning = false;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
+
+    // Listen to progress changes to trigger ignition and wake loop
+    const unsub = progress.on("change", (latestP) => {
+      const { opacity } = calcLifecycle(latestP);
+      if (opacity > 0.02) {
+        startAnimation();
+      } else {
+        stopAnimation();
+      }
+    });
+
+    // Initial check
+    const { opacity: initialOpacity } = calcLifecycle(progress.get());
+    if (initialOpacity > 0.02) {
+      startAnimation();
+    }
+
+    return () => {
+      unsub();
+      stopAnimation();
+      ro.disconnect();
+    };
+  }, [progress, slideIndex, isCurrents]);
+
+  return (
+    <motion.div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "100%",
+        padding: isMobile ? "8px 10px 4px" : "12px 16px 6px",
+        boxSizing: "border-box",
+        opacity: slideOpacity,
+        y: slideTranslateY,
+        pointerEvents,
+      }}
+    >
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          height: "100%",
+          position: "relative",
+          borderRadius: "14px",
+          overflow: "hidden",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+          background: "#091528",
+        }}
+      >
+        {/* High-DPI Fluid Particle Canvas */}
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            display: "block",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Subtle Coordinate Grid Lines */}
+        <svg
+          viewBox="0 0 700 320"
+          preserveAspectRatio="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            display: "block",
+            pointerEvents: "none",
+          }}
+        >
+          <line x1="55" y1="100" x2="645" y2="100" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+          <line x1="55" y1="160" x2="645" y2="160" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+          <line x1="55" y1="220" x2="645" y2="220" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+          <line x1="202" y1="40" x2="202" y2="280" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+          <line x1="350" y1="40" x2="350" y2="280" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+          <line x1="498" y1="40" x2="498" y2="280" stroke="rgba(255, 255, 255, 0.05)" strokeDasharray="2 4" />
+        </svg>
+
+        {/* Dynamic Mode Header Tag */}
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(6, 20, 38, 0.85)",
+            border: `1px solid ${isCurrents ? "rgba(253, 231, 37, 0.3)" : "rgba(212, 165, 165, 0.3)"}`,
+            borderRadius: "20px",
+            padding: "2px 10px",
+            fontSize: "9.5px",
+            color: accentColor,
+            fontWeight: 700,
+            letterSpacing: "0.5px",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            zIndex: 10,
+          }}
+        >
+          {isCurrents ? "OCEAN CURRENTS & CIRCULATION" : "MONSOON WINDS & AIRFLOW"}
+        </div>
+
+        {/* Geographic Bounds HUD */}
+        <div style={{ position: "absolute", top: 8, left: 10, fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: "Inter, monospace", pointerEvents: "none", zIndex: 10 }}>15.0°N</div>
+        <div style={{ position: "absolute", bottom: 8, left: 10, fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: "Inter, monospace", pointerEvents: "none", zIndex: 10 }}>10.0°N</div>
+        <div style={{ position: "absolute", bottom: 8, right: 10, fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: "Inter, monospace", pointerEvents: "none", zIndex: 10 }}>70.0°E</div>
+        <div style={{ position: "absolute", top: 8, right: 10, fontSize: "10px", color: "rgba(255,255,255,0.6)", fontFamily: "Inter, monospace", pointerEvents: "none", zIndex: 10 }}>65.0°E</div>
+
+        {/* Phase 3: Scroll-Scrubbed Callout Pointer */}
+        <ScrollScrubbedCalloutPointer
+          x={callout.x}
+          y={callout.y}
+          title={callout.title}
+          badgeTag={callout.badgeTag}
+          description={callout.description}
+          accentColor={accentColor}
+          align={callout.align}
+          verticalAlign={callout.verticalAlign}
+          progress={progress}
+          slideIndex={slideIndex}
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+export const ScrollScrubbedStageVisualizer: React.FC<{
+  smoothProgress?: MotionValue<number>;
+  sectionProgress?: number;
+}> = ({ smoothProgress, sectionProgress = 0 }) => {
+  const isMobile = useIsMobile(768);
+  const fallbackProgress = useMotionValue(sectionProgress);
+  useEffect(() => {
+    if (!smoothProgress) {
+      fallbackProgress.set(sectionProgress);
+    }
+  }, [sectionProgress, smoothProgress, fallbackProgress]);
+
+  const progress = smoothProgress || fallbackProgress;
+
+  // Track active act & slide index reactively from progress
+  const [activeAct, setActiveAct] = useState<1 | 2 | 3>(() => {
+    const init = progress.get();
+    return init < 0.48 ? 1 : init < 0.75 ? 2 : 3;
+  });
+  const [slideIndex, setSlideIndex] = useState<number>(() => {
+    const init = progress.get();
+    return Math.min(4, Math.max(0, Math.floor(init / 0.096)));
+  });
+
+  useEffect(() => {
+    const unsubscribe = progress.on("change", (latest: number) => {
+      const nextAct: 1 | 2 | 3 = latest < 0.48 ? 1 : latest < 0.75 ? 2 : 3;
+      setActiveAct((prev) => (prev !== nextAct ? nextAct : prev));
+      if (latest < 0.48) {
+        const nextSlide =
+          latest >= 0.375
+            ? 4
+            : latest >= 0.280
+            ? 3
+            : Math.min(2, Math.max(0, Math.floor(latest / 0.096)));
+        setSlideIndex((prev) => (prev !== nextSlide ? nextSlide : prev));
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [progress]);
+
+  const currentConfigIndex = activeAct === 1 ? slideIndex : activeAct === 2 ? 5 : 6;
+  const currentConfig = ACT_CONFIGS[currentConfigIndex];
+
+  // Opacity & visibility transforms for seamless cross-fade boundaries
+  const act1Opacity = useTransform(progress, [0.00, 0.47, 0.485], [1, 1, 0]);
+  const act2Opacity = useTransform(progress, [0.47, 0.485], [0, 1]);
+
+  // Act 03 cross-dissolve: simultaneously fades in 0.0 -> 1.0 in exact handoff window (0.748 -> 0.762) while plane is flat
+  const act3Opacity = useTransform(progress, [0.748, 0.762], [0, 1], { clamp: true });
+  // Stable 1.0 scale — zero jarring pop
+  const act3Scale = useTransform(progress, () => 1);
+
+  // Overlapping visibility & interactivity windows eliminating blank gaps
+  // Act 02 hides cleanly at 0.765 once handoff to flat 3D canvas is complete
+  const isAct2Visible = useTransform(progress, (v) => (v >= 0.46 && v <= 0.765 ? "visible" : "hidden"));
+  const isAct2Interactive = useTransform(progress, (v) => (v >= 0.48 && v < 0.755 ? "auto" : "none"));
+  const isAct3Visible = useTransform(progress, (v) => (v >= 0.745 ? "visible" : "hidden"));
+  const isAct3Interactive = useTransform(progress, (v) => (v >= 0.755 ? "auto" : "none"));
+
+  // Callout opacity for Act 02 (hidden while explodeT < 0.40, fades in 0.40 -> 0.55, holds, fades out 0.0 -> 0.65 of Stage 3)
+  const act2CalloutOpacity = useTransform(progress, (latest) => {
+    const pVal = clamp((latest - 0.48) / 0.28, 0, 1);
+    const rawExplode = clamp(pVal / 0.52, 0, 1);
+    const explodeT = easeExplode(rawExplode);
+    const fadeIn = clamp((explodeT - 0.40) / 0.15, 0, 1);
+    if (pVal <= 0.64) return fadeIn;
+    const isolateT = clamp((pVal - 0.64) / 0.36, 0, 1);
+    const flyT = clamp(isolateT / 0.65, 0, 1);
+    const eFly = flyT * flyT * (3 - 2 * flyT);
+    return fadeIn * (1 - eFly);
+  });
+
+  // Callout opacity for Act 03 (delayed until terrain has fully extruded and camera has tilted down: act3Progress > 0.40)
+  const act3CalloutOpacity = useTransform(progress, (latest) => {
+    const act3P = clamp((latest - 0.762) / (1.00 - 0.762), 0, 1);
+    const t = clamp((act3P - 0.40) / 0.15, 0, 1);
+    return t * t * (3 - 2 * t);
+  });
+  const act3CalloutTranslateX = useTransform(act3CalloutOpacity, [0, 1], [-14, 0]);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        minHeight: isMobile ? "380px" : "480px",
+        background: "linear-gradient(145deg, rgba(10, 24, 44, 0.88), rgba(4, 13, 24, 0.96))",
+        border: "1px solid rgba(56, 189, 248, 0.22)",
+        borderRadius: isMobile ? "16px" : "20px",
+        boxShadow: "0 20px 50px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        userSelect: "none",
+      }}
+    >
+      {/* ─── UNIFIED PERSISTENT STAGE HEADER BAR ─── */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: isMobile ? "10px 14px 8px" : "14px 20px 12px",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.07)",
+          background: "rgba(2, 9, 20, 0.55)",
+          gap: "12px",
+          flexShrink: 0,
+          zIndex: 20,
+        }}
+      >
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: "10px",
+                fontWeight: 700,
+                color: currentConfig.accentColor,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                background: `${currentConfig.accentColor}18`,
+                border: `1px solid ${currentConfig.accentColor}33`,
+                borderRadius: "4px",
+                padding: "2px 8px",
+              }}
+            >
+              {currentConfig.category}
+            </span>
+          </div>
+          <h3
+            style={{
+              fontFamily: "Syne, sans-serif",
+              margin: "3px 0 0",
+              fontSize: isMobile ? "14.5px" : "17px",
+              fontWeight: 700,
+              color: "#ffffff",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {currentConfig.title}
+          </h3>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "rgba(186, 230, 253, 0.75)",
+              marginTop: "2px",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {currentConfig.subtitle}
+          </div>
+        </div>
+
+        {/* Live Metric Glow Badge */}
+        <div
+          style={{
+            padding: isMobile ? "4px 8px" : "6px 12px",
+            borderRadius: "8px",
+            background: `${currentConfig.accentColor}16`,
+            border: `1px solid ${currentConfig.accentColor}44`,
+            fontFamily: "Inter, monospace",
+            fontSize: isMobile ? "12px" : "14px",
+            fontWeight: 700,
+            color: currentConfig.accentColor,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            boxShadow: `0 0 16px ${currentConfig.accentColor}20`,
+            transition: "all 0.3s ease",
+          }}
+        >
+          {currentConfig.metricValue}
+        </div>
+      </div>
+
+      {/* ─── UNIFIED VISUAL VIEWPORT (SAME DIMENSIONS FOR ALL 3 ACTS) ─── */}
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {/* ─── ACT 01: SATELLITE TELEMETRY (0.00 – 0.48) ─── */}
+        <motion.div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: activeAct === 1 ? "flex" : "none",
+            flexDirection: "column",
+            opacity: act1Opacity,
+            zIndex: 5,
+          }}
+        >
+          {/* Continuous Stack of 5 Telemetry Slides (100% Scroll-Scrubbed 4-Phase Lifecycle) */}
+          <div style={{ position: "relative", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
+            {/* Slide 0: SST */}
+            <ScrollScrubbedLineChartSlide
+              progress={progress}
+              slideIndex={0}
+              data={MOCK_SURFACE_TRENDS.SST}
+              yDomain={[29.0, 30.0]}
+              yTicks={[29.0, 29.2, 29.4, 29.6, 29.8, 30.0]}
+              yFormatter={(v) => `${v.toFixed(1)}°C`}
+              accentColor="#ff7882"
+              gradientId="landingSSTGrad"
+              clipId="landingSSTClip"
+              callout={{
+                x: 71.3,
+                y: 23.0,
+                title: "Thermal Surface Anomaly (29.8°C)",
+                badgeTag: "Peak Solar Absorption",
+                description: "Intense solar heating detected in top 1mm layer.",
+                align: "left",
+                verticalAlign: "bottom",
+              }}
+              isMobile={isMobile}
+            />
+
+            {/* Slide 1: SSS */}
+            <ScrollScrubbedLineChartSlide
+              progress={progress}
+              slideIndex={1}
+              data={MOCK_SURFACE_TRENDS.SSS}
+              yDomain={[35.05, 35.30]}
+              yTicks={[35.10, 35.15, 35.20, 35.25, 35.30]}
+              yFormatter={(v) => `${v.toFixed(2)} psu`}
+              accentColor="#35b779"
+              gradientId="landingSSSGrad"
+              clipId="landingSSSClip"
+              callout={{
+                x: 45,
+                y: 50,
+                title: "Freshwater Plume (35.18 psu)",
+                badgeTag: "Barrier Layer Detection",
+                description: "Low-salinity barrier layer traps heat downward.",
+                align: "right",
+                verticalAlign: "top",
+              }}
+              isMobile={isMobile}
+            />
+
+            {/* Slide 2: SSH */}
+            <ScrollScrubbedLineChartSlide
+              progress={progress}
+              slideIndex={2}
+              data={MOCK_SURFACE_TRENDS.SSH}
+              yDomain={[0.10, 0.22]}
+              yTicks={[0.10, 0.13, 0.16, 0.19, 0.22]}
+              yFormatter={(v) => `${v.toFixed(2)}m`}
+              accentColor="#8bb6d6"
+              gradientId="landingSSHGrad"
+              clipId="landingSSHClip"
+              callout={{
+                x: 60,
+                y: 35,
+                title: "Sea Surface Bulge (+0.21m)",
+                badgeTag: "Thermal Water Expansion",
+                description: "Warm water columns expand, raising surface altitude by 25cm.",
+                align: "left",
+                verticalAlign: "bottom",
+              }}
+              isMobile={isMobile}
+            />
+
+            {/* Slide 3: Currents */}
+            <ScrollScrubbedVectorFieldSlide
+              progress={progress}
+              slideIndex={3}
+              metric="Currents"
+              accentColor="#fde725"
+              clipId="landingCurrentsClip"
+              callout={{
+                x: 58,
+                y: 52,
+                title: "Mesoscale Eddy (1.38 m/s)",
+                badgeTag: "Anticyclonic Core",
+                description: "Rotating currents funnel warm surface water downward.",
+                align: "right",
+                verticalAlign: "top",
+              }}
+              isMobile={isMobile}
+            />
+
+            {/* Slide 4: Winds */}
+            <ScrollScrubbedVectorFieldSlide
+              progress={progress}
+              slideIndex={4}
+              metric="Winds"
+              accentColor="#d4a5a5"
+              clipId="landingWindsClip"
+              callout={{
+                x: 58,
+                y: 38,
+                title: "Monsoon Wind Stress (6.4 m/s)",
+                badgeTag: "Northeast Airflow",
+                description: "Surface shear drives vertical mixing.",
+                align: "left",
+                verticalAlign: "top",
+              }}
+              isMobile={isMobile}
+            />
+          </div>
+        </motion.div>
+
+        {/* ─── ACT 02: 3D SUBSURFACE LAYERS (0.48 – 0.76) ─── */}
+        <motion.div
+          style={{
+            position: "absolute",
+            inset: 0,
+            visibility: isAct2Visible,
+            pointerEvents: isAct2Interactive,
+            opacity: act2Opacity,
+            zIndex: 6,
+          }}
+        >
+          {/* CSS-3D Exploding Slices Stack: Perfectly Centered */}
+          <IsometricCss3DSlicesStack progress={progress} isMobile={isMobile} />
+
+          {/* Callout 1: Top-Left Margin */}
+          <motion.div
+            style={{
+              position: "absolute",
+              top: "14px",
+              left: "14px",
+              zIndex: 15,
+              pointerEvents: "none",
+              background: "rgba(4, 14, 28, 0.90)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              borderLeft: "3px solid #fbbf24",
+              padding: "9px 13px",
+              borderRadius: "0 8px 8px 0",
+              maxWidth: isMobile ? "180px" : "230px",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+              opacity: act2CalloutOpacity,
+            }}
+          >
+            <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#fbbf24", letterSpacing: "0.12em" }}>
+              0m – 50m // SURFACE
+            </div>
+            <div style={{ fontFamily: "Syne, sans-serif", fontSize: "13.5px", fontWeight: 700, color: "#ffffff", marginTop: "2px", lineHeight: 1.25 }}>
+              Mixed Surface Layer (28.9°C)
+            </div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.85)", marginTop: "3px", lineHeight: 1.45 }}>
+              Warm solar heat layer observed directly by radiometers.
+            </div>
+          </motion.div>
+
+          {/* Callout 2: Bottom-Left Margin */}
+          <motion.div
+            style={{
+              position: "absolute",
+              bottom: "14px",
+              left: "14px",
+              zIndex: 15,
+              pointerEvents: "none",
+              background: "rgba(4, 14, 28, 0.90)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              borderLeft: "3px solid #a78bfa",
+              padding: "9px 13px",
+              borderRadius: "0 8px 8px 0",
+              maxWidth: isMobile ? "180px" : "230px",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+              opacity: act2CalloutOpacity,
+            }}
+          >
+            <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#a78bfa", letterSpacing: "0.12em" }}>
+              800m – 1,000m // ABYSSAL
+            </div>
+            <div style={{ fontFamily: "Syne, sans-serif", fontSize: "13.5px", fontWeight: 700, color: "#ffffff", marginTop: "2px", lineHeight: 1.25 }}>
+              Dense Deep Ocean (6.5°C)
+            </div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.85)", marginTop: "3px", lineHeight: 1.45 }}>
+              Deep abyssal water reconstructed without in-situ buoys.
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* ─── ACT 03: 3D VOLUMETRIC THERMOCLINE TERRAIN (0.76 – 1.00) ─── */}
+        <motion.div
+          style={{
+            position: "absolute",
+            inset: 0,
+            visibility: isAct3Visible,
+            pointerEvents: isAct3Interactive,
+            opacity: act3Opacity,
+            scale: act3Scale,
+            transformOrigin: "center center",
+            zIndex: 7,
+          }}
+        >
+          {/* 3D Topographic Mesh Canvas: Perfectly Centered */}
+          <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+            <Canvas
+              camera={{ position: [0, 7.1, 2.8], fov: 42 }}
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+              gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            >
+              <CanvasResizeSynchronizer />
+              <ambientLight intensity={0.65} />
+              <directionalLight position={[8, 10, 5]} intensity={2.0} />
+              <pointLight position={[-8, -8, -8]} color="#440154" intensity={2.2} />
+              <pointLight position={[0, -6, -4]} color="#312e81" intensity={2.0} />
+              <spotLight position={[0, 8, 0]} angle={0.6} penumbra={1} intensity={1.2} />
+              <Suspense fallback={null}>
+                <ThermoclineTopographicScene progress={progress} />
+              </Suspense>
+            </Canvas>
+          </div>
+
+          {/* Thermal Peak Callout: Top-Left Margin (Paced onset after extrusion) */}
+          <motion.div
+            style={{
+              position: "absolute",
+              top: "14px",
+              left: "14px",
+              zIndex: 15,
+              pointerEvents: "none",
+              background: "rgba(4, 14, 28, 0.90)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              borderLeft: "3px solid #ef4444",
+              padding: "9px 13px",
+              borderRadius: "0 8px 8px 0",
+              maxWidth: isMobile ? "180px" : "230px",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+              opacity: act3CalloutOpacity,
+              x: act3CalloutTranslateX,
+            }}
+          >
+            <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#ef4444", letterSpacing: "0.12em" }}>
+              12.5°N, 67.5°E @ 100m
+            </div>
+            <div style={{ fontFamily: "Syne, sans-serif", fontSize: "13.5px", fontWeight: 700, color: "#ffffff", marginTop: "2px", lineHeight: 1.25 }}>
+              Subsurface Heat Core (24.91°C)
+            </div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.85)", marginTop: "3px", lineHeight: 1.45 }}>
+              High thermal energy pocket invisible from flat surface satellite view.
+            </div>
+          </motion.div>
+
+          {/* Cold Upwelling Callout: Bottom-Left Margin (Paced onset after extrusion) */}
+          <motion.div
+            style={{
+              position: "absolute",
+              bottom: "14px",
+              left: "14px",
+              zIndex: 15,
+              pointerEvents: "none",
+              background: "rgba(4, 14, 28, 0.90)",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              borderLeft: "3px solid #38bdf8",
+              padding: "9px 13px",
+              borderRadius: "0 8px 8px 0",
+              maxWidth: isMobile ? "180px" : "230px",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.65)",
+              opacity: act3CalloutOpacity,
+              x: act3CalloutTranslateX,
+            }}
+          >
+            <div style={{ fontFamily: "Inter, monospace", fontSize: "10.5px", fontWeight: 700, color: "#38bdf8", letterSpacing: "0.12em" }}>
+              14.2°N, 69.2°E @ 100m
+            </div>
+            <div style={{ fontFamily: "Syne, sans-serif", fontSize: "13.5px", fontWeight: 700, color: "#ffffff", marginTop: "2px", lineHeight: 1.25 }}>
+              Upwelling Cold Trough (19.20°C)
+            </div>
+            <div style={{ fontFamily: "Inter, sans-serif", fontSize: "11px", color: "rgba(186, 230, 253, 0.85)", marginTop: "3px", lineHeight: 1.45 }}>
+              Deep abyssal upwelling lifting cooler nutrient-rich water.
+            </div>
+          </motion.div>
+
+          {/* Bottom-Right Margin: Viridis Colorbar */}
+          <motion.div
+            style={{
+              position: "absolute",
+              bottom: "14px",
+              right: "14px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "4px",
+              background: "rgba(2, 8, 18, 0.85)",
+              padding: "9px 8px",
+              borderRadius: "9px",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              pointerEvents: "none",
+              zIndex: 14,
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.65)",
+              opacity: act3CalloutOpacity,
+            }}
+          >
+            <span style={{ color: "rgba(186,230,253,0.7)", fontSize: "9px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "2px" }}>
+              TEMP
+            </span>
+            <span style={{ color: "#ffffff", fontSize: "11.5px", fontWeight: 700, fontFamily: "Inter, monospace" }}>
+              25°C
+            </span>
+            <div
+              style={{
+                width: "7px",
+                height: "76px",
+                background: "linear-gradient(to bottom, #fde725, #5ec962, #21918c, #3b528b, #440154)",
+                borderRadius: "4px",
+                boxShadow: "0 0 8px rgba(253, 231, 37, 0.25)",
+              }}
+            />
+            <span style={{ color: "rgba(255,255,255,0.85)", fontSize: "11.5px", fontWeight: 600, fontFamily: "Inter, monospace" }}>
+              19°C
+            </span>
+          </motion.div>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+// Backwards-compatible shim
+export const ReconstructionStageVisualizer: React.FC<{ activeStage: number }> = ({ activeStage }) => {
+  const p = activeStage === 1 ? 0.2 : activeStage === 2 ? 0.6 : 0.9;
+  return <ScrollScrubbedStageVisualizer sectionProgress={p} />;
 };
 
 const SatelliteScanIllustration: React.FC = () => (
@@ -1949,7 +3932,7 @@ const computeOrbitGeometry = (w: number, h: number, satEl?: HTMLElement | null) 
   return { globeX, globeY, a, b, angle };
 };
 
-const RECONSTRUCTION_STAGES = [
+export const RECONSTRUCTION_STAGES = [
   {
     stg: 1,
     num: "01",
@@ -2203,10 +4186,20 @@ const LandingPage: React.FC = () => {
   const accuracySectionRef = useRef<HTMLDivElement>(null);
   const howItWorksRef = useRef<HTMLElement>(null);
   const [accuracyInView, setAccuracyInView] = useState(false);
-  const [activeStage, setActiveStage] = useState<number>(1);
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  // Zero-render scroll progress wrapped in spring with silky, weighted inertia
+  const { scrollYProgress: howItWorksScroll } = useScroll({
+    target: howItWorksRef,
+    offset: ["start start", "end end"],
+  });
+  const smoothHowItWorksProgress = useSpring(howItWorksScroll, {
+    stiffness: 90,
+    damping: 24,
+    mass: 0.4,
+  });
 
   useEffect(() => {
     let ticking = false;
@@ -2344,6 +4337,18 @@ const LandingPage: React.FC = () => {
         @keyframes stageFadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulseSlow { 0%,100%{opacity:.6} 50%{opacity:1} }
         @keyframes sweepLine { 0% { left: 0%; opacity: 0.1; } 50% { opacity: 0.7; } 100% { left: 100%; opacity: 0.1; } }
+        @keyframes pointerRingPulse {
+          0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.95; }
+          100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
+        }
+        @keyframes pointerBeaconGlow {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
+          50% { transform: translate(-50%, -50%) scale(1.2); filter: brightness(1.4); }
+        }
+        @keyframes scrubDotPulse {
+          0%, 100% { box-shadow: 0 0 6px #38bdf8, 0 0 12px #38bdf8; }
+          50% { box-shadow: 0 0 14px #38bdf8, 0 0 28px #38bdf8; }
+        }
         .masked-ocean-headline{display:inline-block;background-image:linear-gradient(180deg,#ffffff 0%,#bae6fd 55%,#38bdf8 100%);-webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;color:transparent!important}
         .stroke-frost{display:inline-block;-webkit-text-stroke:1.5px rgba(186,230,253,0.6);-webkit-text-fill-color:transparent!important;color:transparent!important}
         .masked-ice{display:inline-block;background-image:linear-gradient(135deg,#bae6fd 0%,#38bdf8 60%,#0ea5e9 100%);-webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;color:transparent!important}
@@ -2988,79 +4993,118 @@ const LandingPage: React.FC = () => {
         id="how-it-works"
         ref={howItWorksRef}
         style={{
-          minHeight: "90vh",
-          background: "linear-gradient(180deg, rgba(4,28,51,0.85) 0%, rgba(4,21,39,0.93) 100%)",
-          backdropFilter: "blur(4px)",
-          WebkitBackdropFilter: "blur(4px)",
-          padding: isMobile ? "70px 18px" : "120px 32px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           position: "relative",
+          height: "1150vh",
+          background: "linear-gradient(180deg, rgba(4,28,51,0.95) 0%, rgba(3,18,36,0.98) 50%, rgba(2,12,24,1) 100%)",
           zIndex: 4,
-          overflow: "hidden"
         }}
       >
-        <div style={{ maxWidth:"1140px", width:"100%", margin:"0 auto" }}>
+        {/* Un-pinned Top Intro Header - scrolls naturally out of view before the sticky showcase locks */}
+        <div
+          style={{
+            maxWidth: "1180px",
+            margin: "0 auto",
+            padding: isMobile ? "64px 20px 48px" : "96px 32px 64px",
+            textAlign: "center",
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
           <ScrollFlyIn from="bottom">
-            <div style={{ textAlign:"center", marginBottom: isMobile ? "36px" : "64px" }}>
-              <div style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "11px" : "12px", fontWeight:600, letterSpacing:"0.16em", color:"#7dd3fc", textTransform:"uppercase", marginBottom:"14px" }}>How It Works</div>
-              <h2 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "clamp(1.9rem,6.8vw,3.2rem)" : "clamp(2.4rem,5.5vw,4.8rem)", fontWeight:800, letterSpacing:"-0.03em", lineHeight:1.05, marginBottom: isMobile ? "14px" : "20px", color:"#ffffff" }}>
+            <div>
+              <div
+                style={{
+                  fontFamily: "Inter,sans-serif",
+                  fontSize: isMobile ? "10px" : "11.5px",
+                  fontWeight: 700,
+                  letterSpacing: "0.18em",
+                  color: "#7dd3fc",
+                  textTransform: "uppercase",
+                  marginBottom: isMobile ? "6px" : "10px",
+                }}
+              >
+                How It Works
+              </div>
+              <h2
+                style={{
+                  fontFamily: "Syne,sans-serif",
+                  fontSize: isMobile ? "clamp(1.7rem, 6vw, 2.6rem)" : "clamp(2.4rem, 4.2vw, 3.8rem)",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.08,
+                  margin: 0,
+                  color: "#ffffff",
+                }}
+              >
                 TURNING FLAT SATELLITES INTO 3D OCEANS.
               </h2>
-              <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "15px" : "18px", color:"rgba(186,230,253,0.75)", maxWidth:"680px", margin:"0 auto", lineHeight:1.6 }}>
+              <p
+                style={{
+                  fontFamily: "Inter,sans-serif",
+                  fontSize: isMobile ? "13.5px" : "16px",
+                  color: "rgba(186,230,253,0.72)",
+                  maxWidth: "680px",
+                  margin: "14px auto 0",
+                  lineHeight: 1.55,
+                }}
+              >
                 How OceanEmbed turns surface satellite scans into a complete 3D temperature map 1,000 meters deep in real time.
               </p>
             </div>
           </ScrollFlyIn>
+        </div>
 
-          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(320px,1fr))", gap: isMobile ? "28px" : "40px", alignItems:"center" }}>
-            <ScrollFlyIn from="left" delay={100}>
-              <div style={{ display:"flex", flexDirection:"column", gap: isMobile ? "12px" : "16px" }}>
-                {RECONSTRUCTION_STAGES.map(s => {
-                  const isActive = activeStage === s.stg;
-                  return (
-                    <div
-                      key={s.stg}
-                      onClick={() => setActiveStage(s.stg)}
-                      style={{
-                        cursor:"pointer",
-                        padding: isMobile ? "16px 18px" : "22px 26px",
-                        borderRadius: isMobile ? "16px" : "20px",
-                        background: isActive ? "rgba(12,74,110,0.38)" : "rgba(8,27,51,0.6)",
-                        border: `1px solid ${isActive ? "rgba(56,189,248,0.55)" : "rgba(186,230,253,0.12)"}`,
-                        boxShadow: isActive ? "0 12px 35px rgba(2,132,199,0.22)" : "none",
-                        transition:"all .3s cubic-bezier(0.16,1,0.3,1)",
-                        display:"flex",
-                        gap: isMobile ? "14px" : "18px",
-                        alignItems:"flex-start"
-                      }}
-                    >
-                      <div style={{ fontFamily:"Inter,monospace", fontSize:"12px", fontWeight:700, color:isActive ? "#38bdf8" : "rgba(186,230,253,0.4)", background:isActive ? "rgba(56,189,248,0.18)" : "rgba(186,230,253,0.06)", padding:"6px 10px", borderRadius:"8px", flexShrink:0 }}>
-                        {s.num}
-                      </div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
-                          <h4 style={{ fontFamily:"Syne,sans-serif", fontSize: isMobile ? "16px" : "18px", fontWeight:700, color:isActive ? "#ffffff" : "rgba(186,230,253,0.75)", margin:0 }}>
-                            {s.label}
-                          </h4>
-                          <span style={{ fontFamily:"Inter,sans-serif", fontSize:"10px", fontWeight:600, color:isActive ? "#7dd3fc" : "rgba(186,230,253,0.35)", background:"rgba(8,27,51,0.7)", borderRadius:"4px", padding:"2px 8px" }}>
-                            {s.badge}
-                          </span>
-                        </div>
-                        <p style={{ fontFamily:"Inter,sans-serif", fontSize: isMobile ? "13px" : "14px", color:isActive ? "rgba(186,230,253,0.85)" : "rgba(186,230,253,0.5)", lineHeight:1.55, margin:0 }}>
-                          {s.description}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollFlyIn>
+        {/* Sticky Showcase Stage Container */}
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            height: "100vh",
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            padding: isMobile ? "68px 14px 14px" : "80px 32px 20px",
+            boxSizing: "border-box",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: "1180px",
+              width: "100%",
+              margin: "0 auto",
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              justifyContent: "center",
+            }}
+          >
+            {/* Main Stage Grid (Left Editorial Chapters & Right Open Cinematic 3D Visualizer) */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "1fr" : "330px 1fr",
+                gap: isMobile ? "16px" : "36px",
+                alignItems: "stretch",
+                height: isMobile ? undefined : "510px",
+                maxHeight: isMobile ? undefined : "530px",
+                width: "100%",
+              }}
+            >
+              {/* Left Column: Clean Minimalist Editorial Chapters */}
+              <ScrollFlyIn from="left" delay={100} style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+                <EditorialChaptersColumn smoothProgress={smoothHowItWorksProgress} isMobile={isMobile} />
+              </ScrollFlyIn>
 
-            <ScrollFlyIn from="right" delay={200}>
-              <ReconstructionStageVisualizer activeStage={activeStage} />
-            </ScrollFlyIn>
+              {/* Right Column: Open Borderless Cinematic Stage Visualizer */}
+              <ScrollFlyIn from="right" delay={200} style={{ height: "100%", display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <ScrollScrubbedStageVisualizer smoothProgress={smoothHowItWorksProgress} />
+              </ScrollFlyIn>
+            </div>
           </div>
         </div>
       </section>
